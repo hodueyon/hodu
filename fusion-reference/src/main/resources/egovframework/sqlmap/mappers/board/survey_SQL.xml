@@ -1,0 +1,436 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.fusion.survey.service.SurveyMapper">
+	
+	<!-- <select id="surveyQList" resultType="QuestionVO" parameterType="QuestionVO">
+	 	SELECT * FROM
+	 	SERVEY
+	</select> -->
+	
+	
+	<!-- <select id="surveyQList" resultType="QuestionVO" parameterType="QuestionVO">
+	 	SELECT * FROM
+	 	SERVEY
+	</select> -->
+	
+	<select id="AuthList" resultType="egovframework.fusion.user.vo.AuthVO">
+		SELECT * FROM AUTHENTICATION
+	</select>
+	
+	<!--총 count숫자 -->
+	<select id="cntQuestion" resultType="Integer" parameterType="Integer">
+		SELECT COUNT(*)
+		FROM SURVEY_QUESTION
+		WHERE SERVEY_ID = #{servey_id}
+		AND QUESTION_TYPE != 3
+	</select>
+	
+	<select id="getSurveyInfo" parameterType="Integer" resultType="SurveyVO">
+		SELECT SERVEY_ID
+				, START_DATE
+				, TO_CHAR(START_DATE, 'DY') AS "STARTDAY"
+				, END_DATE
+				, TO_CHAR(END_DATE, 'DY') AS "ENDDAY"
+				, ANNOUNCE_DATE
+				,TO_CHAR(ANNOUNCE_DATE, 'DY') AS "ANNOUNCEDAY"
+				, END_DATE - START_DATE+1 AS "SURVEYDAYS"
+				, SERVEY_TARGET
+				, PARTICIPATE_CNT
+				, TITLE
+				, WRITER
+		FROM SERVEY
+		WHERE SERVEY_ID = #{servey_id}
+	</select>
+	
+	<!-- 질문리스트 페이징처리 -->
+	<select id="surveyQList" parameterType="QuestionVO" resultType="QuestionVO">
+		SELECT * FROM 
+				(SELECT Q.QUESTION_ID
+				, Q.QUESTION_CATEGORY
+				, C.CATEGORY_NAME
+				, Q.QUESTION_NUM
+				, Q.QUESTION_NUM_CHILD
+				, Q.SERVEY_ID
+				, Q.QUESTION_CONTENT
+				, Q.QUESTION_TYPE
+				, Q.MAX_CHOICE_CNT
+				, Q.ESSENTIAL_YN
+				, ROWNUM RN 
+				 FROM SURVEY_QUESTION Q
+				 JOIN QUESTION_CATEGORY C
+				 ON Q.QUESTION_CATEGORY = C.Q_CATEGORY_ID
+				 WHERE SERVEY_ID = #{servey_id}
+				ORDER BY  QUESTION_NUM ASC, QUESTION_NUM_CHILD ASC
+				)
+	</select>
+	
+	<!-- 답변리스트 -->
+	<select id="answerList" parameterType="Integer" resultType="AnswerVO">
+		SELECT * 
+		FROM SURVEY_ANSWER
+		WHERE SURVEY_ID = #{survey_id}
+	</select>
+	
+	<!-- 몇번째 설문조사 등록? 참여? 인지 값 체크  -->
+	<select id="cntPaticipate" parameterType="UserAnswerVO" resultType="Integer">
+		SELECT COUNT(DISTINCT PARTICIPATE_NUM)
+		FROM USERS_ANSWER
+		WHERE USER_ID = #{user_id}
+		AND survey_id = #{survey_id}
+	</select>
+	
+	<!-- 답변입력 -->
+	<insert id="insUserAnswer" parameterType="UserAnswerVO">
+		 <if test="answer_id != null">
+			INSERT INTO USERS_ANSWER(USERANS_ID
+									, PARTICIPATE_NUM
+									, USER_ID
+									, QUESTION_ID
+									<if test="answer_content != null">
+									, ANSWER_CONTENT
+									</if>
+									, SURVEY_ID
+									<if test="etc_content != null">
+									, ETC_CONTENT
+									</if>
+									, ANSWER_ID
+									, TEMP_YN  )
+			VALUES( USER_ANS_SEQ.NEXTVAL
+			            , #{participate_num}
+			            , #{user_id}
+			            , #{question_id}
+			            <if test="answer_content != null">
+			            , #{answer_content}
+			            </if>
+			            , #{survey_id}
+			            <if test="etc_content != null">
+			            , #{etc_content}
+			            </if>
+			            , #{answer_id}
+			            , #{temp_yn})
+
+	    </if>
+	</insert>
+	
+	<!-- 내가 답변한 답변 리스트(수정용)  -->
+	<select id="myAnswerList" parameterType="UserAnswerVO" resultType="UserAnswerVO">
+		SELECT U.USERANS_ID, U.PARTICIPATE_NUM, U.USER_ID, U.QUESTION_ID, U.ANSWER_CONTENT, 
+		    U.SURVEY_ID, U.ETC_CONTENT, U.ANSWER_ID, Q.QUESTION_TYPE, U.TEMP_YN 
+		FROM USERS_ANSWER U
+		JOIN SURVEY_QUESTION Q 
+		ON U.QUESTION_ID = Q.QUESTION_ID
+		WHERE SURVEY_ID = #{survey_id}
+		AND USER_ID = #{user_id}
+		AND PARTICIPATE_NUM = #{participate_num}
+		AND (Q.QUESTION_TYPE != 2 OR U.ANSWER_CONTENT IS NOT NULL);
+	</select>
+	
+	<!-- 내가 답변한 1개의 설문조사에대해 중복 할때 대비해서 있는..목록들?  -->
+	<select id="myAnswerListAll" parameterType="UserAnswerVO" resultType="UserAnswerVO">
+		SELECT DISTINCT(PARTICIPATE_NUM)
+		, COUNT(*) OVER(PARTITION BY PARTICIPATE_NUM) AS "COMPLETE_CNT"
+		, ( SELECT COUNT(*) 
+			FROM SURVEY_QUESTION
+			 WHERE SURVEY_ID = #{survey_id}
+			  AND QUESTION_TYPE != 3
+			  AND ESSENTIAL_YN = 'y'
+			) AS "TOTAL_Q_CNT"
+		, TEMP_YN 
+		FROM USERS_ANSWER
+		WHERE USER_ID= #{user_id}
+		AND SURVEY_ID = #{survey_id}
+	</select>
+	
+	<!-- 수정 위해 이전 데이터 삭제  -->
+	<delete id="delBeforeEditAnswer" parameterType="UserAnswerVO" >
+		DELETE USERS_ANSWER
+		WHERE SURVEY_ID = #{survey_id}
+		AND USER_ID = #{user_id}
+		AND PARTICIPATE_NUM = #{participate_num}	
+	</delete>
+	
+	<!-- 프로그레스바용 토탈데이터 -->
+	<select id="cntProgressBarTotal"  resultType="Integer" parameterType="Integer">
+		SELECT COUNT(*)
+		FROM SURVEY_QUESTION
+		WHERE SERVEY_ID = #{servey_id}
+		AND QUESTION_TYPE != 3
+		AND ESSENTIAL_YN = 'y'
+	</select>
+	
+	<!-- 카테고리 가져오기 만들기 전에 ~~ -->
+	<select id="q_categoryList" resultType="egovframework.fusion.survey.vo.QuestionCategoryVO">
+		SELECT *
+		FROM QUESTION_CATEGORY
+	</select>
+	
+	<select id="allSurveyList" resultType="SurveyVO">
+		SELECT SERVEY_ID,
+			TO_CHAR(START_DATE, 'YYYY/MM/DD') AS START_DATE,
+			TO_CHAR(END_DATE, 'YYYY/MM/DD') AS END_DATE,
+			TO_CHAR(ANNOUNCE_DATE, 'YYYY/MM/DD') AS ANNOUNCE_DATE,
+			SERVEY_TARGET,
+			PARTICIPATE_CNT,
+			TITLE,
+			WRITER,
+			MENU_ID,
+			DEL_YN
+		FROM SERVEY
+		WHERE DEL_YN = 'n'
+		ORDER BY SERVEY_ID
+	</select>
+	
+	<!-- 설문조사 정보 등록 -->
+	<insert id="inputSurvey" parameterType="SurveyVO">
+		<selectKey keyProperty="servey_id" resultType="Integer"
+			order="BEFORE">
+			SELECT SERVEY_SEQ.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO SERVEY
+		VALUES(#{servey_id}, #{start_date}, #{end_date}, #{announce_date}, #{servey_target}, #{participate_cnt}, #{title}, #{writer}, #{menu_id}, 'n')
+	</insert>
+	
+	<!-- 문항 등록 -->
+	 <insert id="inputSurveyQues" parameterType="QuestionVO">
+		<selectKey keyProperty="question_id" resultType="Integer"
+			order="BEFORE">
+			SELECT SERVEY_Q_SEQ.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO SURVEY_QUESTION
+		VALUES(#{question_id}
+				, #{question_category}
+				, #{question_num}
+				, #{question_num_child}
+				, #{servey_id}
+				, #{question_content}
+				, #{question_type}
+				, #{max_choice_cnt}
+				, #{essential_yn}) 
+	</insert>
+	
+	<insert id="inputAnsOption" parameterType="AnswerVO">
+		INSERT INTO SURVEY_ANSWER
+		VALUES( SURVEY_A_SEQ.NEXTVAL, #{answer_order}, #{question_id}, #{survey_id}, #{answer_content}, #{answer_type} )
+	</insert>
+	
+	<!-- 삭제 -->
+	<update id="delSurvey" parameterType="Integer">
+		UPDATE SERVEY
+		SET DEL_YN = 'y'
+		WHERE SERVEY_ID= #{servey_id}
+	</update>
+	
+	<select id="ckAnsUsers" parameterType="Integer" resultType="Integer">
+		SELECT COUNT(*)
+		FROM USERS_ANSWER
+		WHERE SURVEY_ID = #{survey_id}
+	</select>
+	
+	<!-- 수정때 위해서 불러오기위한 메소드들  -->
+	<select id="getQues" parameterType="Integer" resultType="QuestionVO">
+		SELECT *
+		FROM SURVEY_QUESTION
+		WHERE SERVEY_ID = #{servey_id}
+		AND QUESTION_NUM_CHILD = 0
+		ORDER BY QUESTION_ID
+	</select>
+	
+	<select id="getSubQues" parameterType="Integer" resultType="QuestionVO">
+		SELECT *
+		FROM SURVEY_QUESTION
+		WHERE SERVEY_ID = #{servey_id}
+		AND QUESTION_NUM_CHILD != 0
+		ORDER BY QUESTION_ID
+	</select>
+	
+	<select id="getAnsOptions"  parameterType="Integer" resultType="AnswerVO">
+		SELECT *
+		FROM SURVEY_ANSWER
+		WHERE SURVEY_ID = #{servey_id}
+		ORDER BY ANSWER_ID
+	</select>
+	
+	<!-- 수정 삭제용 -->
+	<delete id="delQuesForEdit" parameterType="Integer">
+		DELETE SURVEY_QUESTION
+		WHERE SERVEY_ID = #{servey_id}
+	</delete>
+	
+	<delete id="delOptionsForEdit" parameterType="Integer">
+		DELETE SURVEY_ANSWER
+		WHERE SURVEY_ID = #{survey_id}
+	</delete>
+	
+	<delete id="delInfoForEdit" parameterType="Integer">
+		DELETE SERVEY
+		WHERE SERVEY_ID = #{servey_id}
+	</delete>
+	
+	<!-- 통계용  -->
+	<select id="getDataforchart" parameterType="QuestionVO" resultType="UserAnswerVO">
+	  SELECT A.QUESTION_ID, A.ANSWER_ID, A.ANSWER_CONTENT,
+	         COUNT(U.QUESTION_ID) AS ANSWER_CNT,
+	         (SELECT COUNT(*) FROM SURVEY_ANSWER WHERE QUESTION_ID = A.QUESTION_ID) AS TOTAL_COUNT,
+	         CASE
+	           WHEN (SELECT COUNT(*) FROM USERS_ANSWER WHERE QUESTION_ID = A.QUESTION_ID) = 0 THEN 0
+	           WHEN (SELECT COUNT(*) FROM USERS_ANSWER 
+	                 WHERE QUESTION_ID = A.QUESTION_ID
+	                 <if test="location != null and location != ''">
+	                   AND USER_ID IN (
+	                     SELECT USER_ID 
+	                     FROM USERS
+	                     WHERE LOCATION = #{location}
+	                   )
+	                 </if>
+	                 ) = 0 THEN 0
+	           ELSE CAST(COUNT(U.QUESTION_ID) AS FLOAT) / (
+	             SELECT COUNT(*) 
+	             FROM USERS_ANSWER 
+	             WHERE QUESTION_ID = A.QUESTION_ID
+	             <if test="location != null and location != ''">
+	               AND USER_ID IN (
+	                 SELECT USER_ID 
+	                 FROM USERS
+	                 WHERE LOCATION = #{location}
+	               )
+	             </if>
+	           )
+	         END AS ANSWER_RATIO
+	  FROM SURVEY_ANSWER A
+	  LEFT JOIN USERS_ANSWER U ON A.ANSWER_ID = U.ANSWER_ID
+	                           <if test="location != null and location != ''">
+	                             AND U.USER_ID IN (
+	                               SELECT USER_ID 
+	                               FROM USERS
+	                               WHERE LOCATION = #{location}
+	                             )
+	                           </if>
+	                           AND U.TEMP_YN = 'n'
+	  WHERE A.QUESTION_ID = #{question_id}
+	  GROUP BY A.QUESTION_ID, A.ANSWER_ID, A.ANSWER_CONTENT
+	  ORDER BY A.ANSWER_ID
+	</select>
+
+	
+	<!-- 주관식 -->
+	<select id="getAnswerContent" parameterType="QuestionVO"  resultType="UserAnswerVO">
+		SELECT USERANS_ID, USER_ID, A.QUESTION_ID, ANSWER_CONTENT, A.SURVEY_ID, Q.QUESTION_TYPE
+		FROM USERS_ANSWER A JOIN SURVEY_QUESTION Q
+		ON  A.QUESTION_ID = Q.QUESTION_ID
+		WHERE Q.QUESTION_ID = #{question_id}
+		 <if test="location != null and location != ''">
+	    	AND A.USER_ID IN (
+               SELECT USER_ID 
+               FROM USERS
+               WHERE LOCATION = #{location}
+             )
+	    </if>
+		AND ANSWER_CONTENT IS NOT NULL
+		AND A.TEMP_YN = 'n'
+	</select>
+	
+	<!-- 기타 작성 값 가져오기 -->
+	<select id="getEtcContent" parameterType="QuestionVO"  resultType="UserAnswerVO">
+		SELECT USERANS_ID, USER_ID, A.QUESTION_ID, ANSWER_CONTENT, A.SURVEY_ID, Q.QUESTION_TYPE, ETC_CONTENT
+		FROM USERS_ANSWER A JOIN SURVEY_QUESTION Q
+		ON  A.QUESTION_ID = Q.QUESTION_ID
+		WHERE Q.QUESTION_ID = #{question_id}
+		AND A.TEMP_YN = 'n'
+		AND ANSWER_CONTENT = '기타'
+	</select>
+	
+	<select id="getCkQuestType" parameterType="QuestionVO" resultType="Integer">
+		SELECT QUESTION_TYPE FROM SURVEY_QUESTION
+		WHERE QUESTION_ID = #{question_id}
+	</select>
+	
+	<select id="listQuesNums" resultType="QuestionVO">
+		SELECT QUESTION_ID, QUESTION_NUM, QUESTION_NUM_CHILD, QUESTION_TYPE
+		FROM SURVEY_QUESTION
+		WHERE SERVEY_ID = #{servey_id}
+	</select>
+	
+	
+	<select id="getInfoSurvey" resultType="SurveyVO">
+		SELECT * 
+		FROM SERVEY
+		WHERE SERVEY_ID = #{servey_id}
+	</select>
+	
+	<select id="getInfoQuest" resultType="QuestionVO">
+		SELECT *
+		FROM SURVEY_QUESTION
+		WHERE QUESTION_ID = #{question_id}
+	</select>
+	
+	<select id="getInfoAnswerOption" resultType="AnswerVO">
+		SELECT *
+		FROM SURVEY_ANSWER
+		WHERE QUESTION_ID = #{question_id}
+	</select>
+	
+	<select id="SurveyListForSurvey" resultType="SurveyVO">
+		SELECT SERVEY_ID,
+			TO_CHAR(START_DATE, 'YYYY/MM/DD') AS START_DATE,
+			TO_CHAR(END_DATE, 'YYYY/MM/DD') AS END_DATE,
+			TO_CHAR(ANNOUNCE_DATE, 'YYYY/MM/DD') AS ANNOUNCE_DATE,
+			SERVEY_TARGET,
+			PARTICIPATE_CNT,
+			TITLE,
+			WRITER,
+			MENU_ID,
+			DEL_YN
+		FROM SERVEY
+		WHERE DEL_YN = 'n'
+		AND END_DATE > SYSDATE
+		ORDER BY SERVEY_ID	
+	</select>
+	
+	<select id="cntAnswerUser" parameterType="QuestionVO" resultType="Integer">
+		SELECT COUNT(*) FROM USERS_ANSWER
+		WHERE QUESTION_ID = #{question_id}
+		AND TEMP_YN = 'n'
+		<if test="location != null and location != ''">
+			AND USER_ID IN (
+	                        SELECT USER_ID 
+	                        FROM USERS
+	                        WHERE LOCATION = #{location}
+	                    )
+         </if>           	
+	</select>
+	
+	<select id="getMyAuth" parameterType="String" resultType="UserVo">
+		SELECT * 
+		FROM USERS U JOIN AUTHENTICATION A
+		ON  U.AUTH = A.AUTH_ID
+		WHERE USER_ID = #{user_id}
+	</select>
+	
+	<select id="ckDate" parameterType="Integer" resultType="Integer">
+		SELECT
+		  CASE
+		    WHEN TO_CHAR(SYSDATE, 'YYYY/MM/DD') BETWEEN TO_CHAR(START_DATE, 'YYYY/MM/DD') AND TO_CHAR(END_DATE, 'YYYY/MM/DD') THEN 1
+		    ELSE 3
+		  END AS RESULT
+		FROM SERVEY
+		where servey_id = #{servey_id};
+	</select>
+	
+	<select id="getSurveyListforstat" resultType="SurveyVO">
+		SELECT SERVEY_ID,
+			TO_CHAR(START_DATE, 'YYYY/MM/DD') AS START_DATE,
+			TO_CHAR(END_DATE, 'YYYY/MM/DD') AS END_DATE,
+			TO_CHAR(ANNOUNCE_DATE, 'YYYY/MM/DD') AS ANNOUNCE_DATE,
+			SERVEY_TARGET,
+			PARTICIPATE_CNT,
+			TITLE,
+			WRITER,
+			MENU_ID,
+			DEL_YN
+		FROM SERVEY
+		WHERE DEL_YN = 'n'
+		AND   SYSDATE > END_DATE
+		ORDER BY SERVEY_ID	
+	</select>
+	
+</mapper>

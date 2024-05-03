@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.fusion.commoncode.service.CommonCodeMapper">
+	
+	<!-- 전체조회 -->
+	
+	<!-- 대분류만 조회 -->
+	<select id="upperList" resultType="UpperVO" parameterType="UpperVO">
+		SELECT  *
+		FROM UPPER_COMMON
+		WHERE DEL_YN = 'n'
+		<if test="search_type!=null and search_word != null and search_type != '' and search_word != ''">
+			<if test='search_type == "codeId" '>
+				AND UPPER_ID LIKE '%'||#{search_word}||'%' 
+			</if>
+			<if test='search_type == "codeName" '>
+				AND UPPER_NAME LIKE '%'||#{search_word}||'%' 
+			</if>
+		</if>
+		ORDER BY UPPER_ID
+	</select>
+	
+	<!-- 소분류 조회 -->
+	<select id="subList" resultType="SubVO" parameterType="UpperVO">
+		SELECT  SUB_ID
+				, SUB_NAME
+				, S.DEL_YN
+				, U.DEL_YN AS UDELYN
+				, S.UPPER_ID
+				, EXPLAIN
+				, UPPER_NAME
+				, U.ORDER_NUM AS UORDERNUM
+				, EXPALIN
+				, U.UPPER_ID AS UIDD
+		FROM SUB_COMMON S  JOIN UPPER_COMMON U
+		ON S.UPPER_ID = U.UPPER_ID
+		WHERE s.DEL_YN = 'n'
+		AND U.UPPER_ID = #{upper_id}
+		ORDER BY SUB_ID
+	</select>
+	
+	<!-- 소분류 한개 조회 -->
+	<select id="getUpperSubInfo" resultType="SubVO" parameterType="String">
+		SELECT U.UPPER_ID ,U.UPPER_NAME, U.EXPALIN, S.SUB_ID, S.SUB_NAME, S.EXPLAIN
+		FROM UPPER_COMMON U JOIN SUB_COMMON S
+		ON U.UPPER_ID = S.UPPER_ID
+		WHERE S.SUB_ID = #{sub_id}
+	</select>
+	
+	<!-- 대분류 등록 --> 
+	<insert id="insertUpper" parameterType="UpperVO">
+		INSERT INTO UPPER_COMMON
+		<if test="upper_id != null">
+		VALUES( CHR(ASCII(#{upper_id})+1), #{upper_name}, 'n',#{order_num}, #{expalin})
+		</if>
+		<if test="upper_id == null">
+			VALUES( 'A', #{upper_name}, 'n',#{order_num}, #{expalin} )
+		</if>
+	</insert>
+	
+	<!-- 소분류 등록 -->
+	<insert id="insertSub" parameterType="SubVO">
+		INSERT INTO SUB_COMMON
+		VALUES(#{upper_id}||LPAD(#{order_num},2,0), #{sub_name}, 'n',#{order_num}, #{upper_id}, #{explain})	
+	</insert>
+	
+	<!-- 대분류 삭제 -->
+	<update id="delUpper" parameterType="UpperVO">
+	  UPDATE UPPER_COMMON
+	  SET DEL_YN = 'y'
+	  WHERE UPPER_ID IN
+	  <foreach item="value" index="index" collection="numArr"
+	      open="(" separator="," close=")">
+	        #{value}
+	  </foreach> 
+	</update>
+
+	
+	<!-- 소분류 삭제 -->
+	<update id="delSub" parameterType="SubVO">
+		UPDATE SUB_COMMON
+		 SET DEL_YN = 'y'
+		 WHERE SUB_ID IN
+		  <foreach item="numArr" index="index" collection="numArr"
+		      open="(" separator="," close=")">
+		        #{numArr}
+		  </foreach> 
+	</update>
+	
+	<!-- 대분류 수정 -->
+	<update id="updateUpper" parameterType="UpperVO">
+		UPDATE UPPER_COMMON
+		SET UPPER_NAME = #{upper_name}
+		, EXPALIN = #{expalin}
+		WHERE UPPER_ID = #{upper_id}  
+	</update>
+	
+	<!-- 소분류 수정 -->
+	<update id="updateSub" parameterType="SubVO">
+		UPDATE SUB_COMMON
+		SET SUB_NAME = #{sub_name}
+		, EXPLAIN = #{explain}
+		WHERE SUB_ID = #{sub_id}  
+	</update>
+	
+	
+	<!-- 가장마지막알파벳찾기 대분류 등록용  -->
+	<select id="findLastIdOrder" resultType="UpperVO">
+		SELECT UPPER_ID, (SELECT COUNT(*) FROM UPPER_COMMON) AS ORDER_NUM
+		FROM (
+		    SELECT UPPER_ID
+		    FROM UPPER_COMMON
+		    ORDER BY UPPER_ID DESC
+		)
+		WHERE ROWNUM = 1
+	</select>
+	
+	<!-- 소분류용 라스트 숫자 찾기   -->
+	<select id="findLastOrder" resultType="Integer" parameterType="SubVO">
+		SELECT ORDER_NUM
+		FROM (
+		  SELECT ORDER_NUM
+		  FROM SUB_COMMON
+		  WHERE UPPER_ID = #{upper_id}
+		  ORDER BY SUB_ID DESC
+		) WHERE ROWNUM = 1
+	</select>
+	
+	
+	<!-- 대분류 등록시 중복확인 -->
+	<select id="upperDuplicateCk" parameterType="UpperVO" resultType="Integer">
+		SELECT COUNT(*)
+		FROM UPPER_COMMON
+		WHERE UPPER_NAME = #{upper_name}
+		AND DEL_YN = 'n'
+		<if test="upper_id != null">
+		AND UPPER_ID != #{upper_id}
+		</if>
+	</select>
+	
+	
+	<!-- 소분류 등록시 중복확인 -->
+	<select id="subDuplicateCk" parameterType="SubVO" resultType="Integer">
+		SELECT COUNT(*)
+		FROM SUB_COMMON
+		WHERE SUB_NAME = #{sub_name}
+		AND UPPER_ID = #{upper_id}
+		AND DEL_YN = 'n'
+		<if test="sub_id != null">
+		AND SUB_ID != #{sub_id}
+		</if>
+	</select>
+	
+	<!-- 지역가져오기 -->
+	<select id="korealocations" resultType="SubVO">
+		SELECT * 
+		FROM SUB_COMMON
+		WHERE UPPER_ID = 'C'
+		AND DEL_YN = 'n'	
+	</select>
+</mapper>

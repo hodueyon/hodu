@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" "http://mybatis.org/dtd/mybatis-3-config.dtd">
+
+<configuration>
+    <typeAliases>
+		<typeAlias alias="boardVo" type="egovframework.fusion.board.vo.BoardVO"/>
+    	<typeAlias alias="ReplyVO" type="egovframework.fusion.board.vo.ReplyVO"/>
+		<typeAlias alias="UserVo" type="egovframework.fusion.user.vo.UserVO"/>
+		<typeAlias alias="HistoryVO" type="egovframework.fusion.board.vo.HistoryVO"/>
+		<typeAlias alias="GalHistoryVO" type="egovframework.fusion.galary.vo.GalaryHistoryVO"/>
+		<typeAlias alias="GalaryVO" type="egovframework.fusion.galary.vo.GalaryVO"/>
+		<typeAlias alias="MediaVO" type="egovframework.fusion.galary.vo.MediaVO"/>
+		<typeAlias alias="LikeVO" type="egovframework.fusion.galary.vo.LikeVO"/>
+ 		<typeAlias alias="TagsVO" type="egovframework.fusion.galary.vo.TagsVO"/>
+ 		<typeAlias alias="DownloadsVO" type="egovframework.fusion.galary.vo.DownloadsVO"/>
+ 		<typeAlias alias="QuestionVO" type="egovframework.fusion.survey.vo.QuestionVO"/>
+ 		<typeAlias alias="AnswerVO" type="egovframework.fusion.survey.vo.AnswerVO"/>
+ 		<typeAlias alias = "UserAnswerVO" type="egovframework.fusion.survey.vo.UserAnswerVO" />
+ 		<typeAlias alias = "SurveyVO" type="egovframework.fusion.survey.vo.SurveyVO"/>
+ 		<!-- 통합메뉴만들기 -->
+ 		<typeAlias alias = "MenuVO" type="egovframework.fusion.common.vo.MenuVO" />
+ 		<typeAlias alias = "MenuHistoryVO" type="egovframework.fusion.common.vo.MenuHistoryVO" />   		
+   		<!-- 공통코드관리 -->
+   		<typeAlias alias = "UpperVO" type="egovframework.fusion.commoncode.vo.UpperCommonVO" />
+   		<typeAlias alias = "SubVO" type="egovframework.fusion.commoncode.vo.SubCommonVO"/>
+   		<!-- sns -->
+   		<typeAlias alias = "snslikevo" type="egovframework.fusion.sns.vo.SnsLikeVO"/>
+   		<!-- 진행단계 -->
+   		<typeAlias alias = "ckoverVO" type="egovframework.fusion.progressBrd.vo.ckoverVO"/>
+   		<typeAlias alias = "progressVO" type="egovframework.fusion.progressBrd.vo.progressVO" />
+   		<typeAlias alias = "ObjectVO" type="egovframework.fusion.progressBrd.vo.ObjectVO"/>
+   		<typeAlias alias = "SubCommonVO" type="egovframework.fusion.commoncode.vo.SubCommonVO" />
+
+   </typeAliases>
+</configuration>

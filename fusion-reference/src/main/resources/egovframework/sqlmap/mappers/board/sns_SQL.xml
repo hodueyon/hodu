@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.fusion.sns.service.SnsMapper">
+	
+	<!-- 좋아요여부확인 -->
+	<select id="ckLikeYn" parameterType="snslikevo" resultType="Integer">
+		SELECT COUNT(*)
+		FROM SNS_LIKES
+		WHERE SNS_ID = #{sns_id}
+		AND USER_ID = #{user_id}
+	</select>
+	
+	<!-- 좋아요등록 -->
+	<insert id="inputLike" parameterType="snslikevo">
+		INSERT INTO SNS_LIKES
+		VALUES( SNS_LIKE_SEQ.NEXTVAL, #{sns_id}, #{user_id}) 
+	</insert>
+	
+	<!-- 좋아요해제 -->
+	<delete id="delLIke" parameterType="snslikevo">
+		DELETE SNS_LIKES
+		WHERE USER_ID = #{user_id}
+		AND SNS_ID = #{sns_id}
+	</delete>
+	
+	<!-- 글등록 -->
+	<insert id="insertSns" parameterType="egovframework.fusion.sns.vo.SnsVO">
+		INSERT INTO SNS
+		VALUES(SNS_SEQ.NEXTVAL, #{content}, #{writer}, 'n', SYSDATE, #{menu_id} )
+	</insert>
+	
+	<!-- 글목록 가져오기 -->
+	<select id="snslist" parameterType="egovframework.fusion.sns.vo.SnsVO" resultType="egovframework.fusion.sns.vo.SnsVO">
+		SELECT S.SNS_ID, S.CONTENT, S.WRITER, S.REGISTER_DT, S.MENU_ID
+			, (SELECT COUNT(*) 
+				FROM SNS_LIKES
+				WHERE SNS_ID = S.SNS_ID) AS "LIKECNT"
+			<if test="user_id !=null">	
+			,(SELECT COUNT(*)
+			FROM SNS_LIKES
+			WHERE SNS_ID = S.SNS_ID
+			AND USER_ID = #{user_id}) AS "LIKEYN" 
+			</if>
+			,U.USER_NAME
+			FROM SNS S JOIN USERS U
+			ON S.WRITER = U.USER_ID
+			WHERE MENU_ID = #{menu_id}
+			AND DEL_YN = 'n'
+			<if test="search_type!=null and search_word != null">
+				<if test='search_type == "writer" '>
+		          AND WRITER IN (SELECT U.USER_ID
+									FROM USERS U
+									WHERE U.USER_NAME LIKE '%'|| #{search_word}|| '%')
+		        </if>
+		        <if test='search_type == "content" '>
+		          AND  CONTENT LIKE '%' || #{search_word} || '%'
+		        </if>
+		        <if test='search_type == "whole" '>
+		          AND ( CONTENT LIKE '%' || #{search_word} || '%'
+		          		OR  WRITER IN (SELECT U.USER_ID
+									FROM USERS U
+									WHERE U.USER_NAME LIKE '%'|| #{search_word}|| '%') )
+		        </if>
+			</if>
+			ORDER BY S.SNS_ID DESC
+			OFFSET #{start}-1 ROWS FETCH FIRST #{cntPerPage} ROWS ONLY
+	</select>
+	
+	<!-- 삭제 -->
+	<update id="delSns" parameterType="egovframework.fusion.sns.vo.SnsVO">
+		UPDATE SNS
+		SET DEL_YN = 'y'
+		WHERE SNS_ID = #{sns_id}
+	</update> 		
+	
+	<!-- 수정갈겨 -->
+	<update id="updateSns" parameterType="egovframework.fusion.sns.vo.SnsVO">
+		UPDATE SNS
+		SET content = #{content}
+		WHERE SNS_ID = #{sns_id}
+	</update> 
+	
+	<!-- 댓글리스트 가져오기 -->
+	<select id="replylist" parameterType="egovframework.fusion.sns.vo.SnsReplyVO" resultType="egovframework.fusion.sns.vo.SnsReplyVO">
+		SELECT REPLY_ID, CONTENT, WRITER, REGISTER_DT, BRD_ID, U.USER_NAME
+		FROM SNS_REPLY S JOIN USERS U
+		ON S.WRITER = U.USER_ID
+		WHERE BRD_ID = #{brd_id} 
+		AND S.DEL_YN = 'n'
+		ORDER BY REPLY_ID DESC
+	</select>
+	
+	<!-- 댓글등록 -->
+	<insert id="inputReply" parameterType="egovframework.fusion.sns.vo.SnsReplyVO">
+		INSERT INTO
+		SNS_REPLY
+		VALUES(SNS_REPLY_SEQ.NEXTVAL,  #{content}, #{writer}, 'n', SYSDATE, #{brd_id})
+	</insert>
+	
+	<!-- 댓글삭제 -->
+	<update id="delReply" parameterType="egovframework.fusion.sns.vo.SnsReplyVO">
+		UPDATE SNS_REPLY
+		SET DEL_YN = 'y'
+		WHERE REPLY_ID = #{reply_id}
+	</update>
+	
+	<!-- 댓글수정 -->
+	<update id="updateReply" parameterType="egovframework.fusion.sns.vo.SnsReplyVO">
+		UPDATE SNS_REPLY
+		SET CONTENT = #{content}
+		WHERE REPLY_ID = #{reply_id}
+	</update>
+	
+	<!-- 권한 확인용 글검색 -->
+		<select id="getSns" parameterType="Integer" resultType="egovframework.fusion.sns.vo.SnsVO">
+			SELECT * 
+			FROM SNS
+			WHERE SNS_ID = #{sns_id}
+		</select>
+	
+	<!-- 권한 확인용 한건 댓글검색  -->
+	<select id="getReply" parameterType="Integer" resultType="egovframework.fusion.sns.vo.SnsReplyVO">
+		SELECT * 
+		FROM SNS_REPLY
+		WHERE REPLY_ID = #{reply_id}	
+	</select>
+</mapper>

@@ -1,0 +1,511 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.fusion.common.service.MenuMapper">
+
+	<select id="menulist" resultType="MenuVO" parameterType="Integer">
+		SELECT *
+		FROM MENU M
+		JOIN AUTHENTICATION A ON M.AUTH_ID = A.AUTH_ID
+		JOIN MENU_CATEGORY C ON M.MENU_CATEGORY = C.M_CATEGORY_ID
+		WHERE M.AUTH_ID >= #{auth_id}
+		ORDER BY (CASE WHEN M.MENU_CATEGORY = 4 THEN 1 ELSE 0 END) ASC, M.MENU_ID ASC
+	</select>
+	
+	<!-- 카테고리 가져오기 -->
+	<select id="getCategory" resultType="MenuVO">
+		select * from MENU_CATEGORY
+	</select>
+	
+	<!-- 권한 가져오기 -->
+	<select id="getAuthes" resultType="MenuVO">
+		SELECT * FROM AUTHENTICATION
+	</select>
+	
+	<!-- 메뉴등록 -->
+	<insert id="insMenu"  parameterType="MenuVO">
+		INSERT INTO MENU
+		VALUES(#{menu_id}, #{menu_name}, #{auth_id}, #{menu_url}, #{menu_category})
+	</insert>
+	
+	<!-- 시퀀스뽑기  -->
+	<select id="makemenuid" resultType="Integer">
+			SELECT MENU_SEQ.NEXTVAL FROM DUAL
+	</select>
+	
+	<!-- 메뉴삭제 -->
+	<delete id="delMenu" parameterType="Integer">
+		DELETE MENU
+		WHERE MENU_ID = #{menu_id}
+	</delete>
+	
+	<!-- 메뉴수정 -->
+	<update id="updateMenu" parameterType="MenuVO">
+		UPDATE MENU
+		SET MENU_NAME = #{menu_name},
+		AUTH_ID = #{auth_id}
+		<if test="menu_url != null">
+		, menu_url = #{menu_url}
+		</if>
+		WHERE MENU_ID = #{menu_id} 
+	</update>
+	
+	<!-- 메뉴가져오기 -->
+	<select id="getmenu" parameterType="Integer" resultType="MenuVO">
+		SELECT * 
+		FROM MENU
+		WHERE MENU_ID = #{menu_id}
+	</select>
+	
+	<!-- 로그기록  -->
+	<insert id="inputMenuRecord" parameterType="MenuHistoryVO">
+		INSERT INTO MENU_HISTORY
+		VALUES( MENU_RCD_SEQ.NEXTVAL, #{user_id}, SYSDATE, #{menu_id})
+	</insert>
+	
+	
+	<!-- url로 메뉴 정보 찾기 -->
+	<select id="getmenubyurl" parameterType="String" resultType="MenuVO">
+		SELECT *
+		FROM MENU
+		WHERE MENU_URL = #{menu_url}
+	</select>
+	
+	<resultMap id="monthResult" type="egovframework.fusion.common.vo.MenuHistoryVO">
+	  	<result column="menuname" property="menu_name" />
+	  	<result column="1월" property="mon1" />
+	  	<result column="2월" property="mon2" />
+	  	<result column="3월" property="mon3" />
+	  	<result column="4월" property="mon4" />
+	  	<result column="5월" property="mon5" />
+	  	<result column="6월" property="mon6" />
+	  	<result column="7월" property="mon7" />
+	  	<result column="8월" property="mon8" />
+	  	<result column="9월" property="mon9" />
+	  	<result column="10월" property="mon10" />
+	  	<result column="11월" property="mon11" />
+	  	<result column="12월" property="mon12" />
+	</resultMap>
+	
+	<resultMap id="TimeResult" type="egovframework.fusion.common.vo.MenuHistoryVO">
+	  	<result column="menuname" property="menu_name" />
+	  	<result column="0시" property="time0" />	
+	  	<result column="1시" property="time1" />	
+	  	<result column="2시" property="time2" />	
+	  	<result column="3시" property="time3" />	
+	  	<result column="4시" property="time4" />	
+	  	<result column="5시" property="time5" />	
+	  	<result column="6시" property="time6" />	
+	  	<result column="7시" property="time7" />	
+	  	<result column="8시" property="time8" />	
+	  	<result column="9시" property="time9" />	
+	  	<result column="10시" property="time10" />	
+	  	<result column="11시" property="time11" />	
+	  	<result column="12시" property="time12" />	
+	  	<result column="13시" property="time13" />	
+	  	<result column="14시" property="time14" />	
+	  	<result column="15시" property="time15" />	
+	  	<result column="16시" property="time16" />	
+	  	<result column="17시" property="time17" />	
+	  	<result column="18시" property="time18" />	
+	  	<result column="19시" property="time19" />	
+	  	<result column="20시" property="time20" />
+	  	<result column="21시" property="time21" />	
+	  	<result column="22시" property="time22" />	
+	  	<result column="23시" property="time23" />	
+	</resultMap>
+	
+	<resultMap id="DayResult" type="egovframework.fusion.common.vo.MenuHistoryVO">
+		<result column="menuname" property="menu_name" />
+	  	<result column="1일" property="day1" />	
+	  	<result column="2일" property="day2" />	
+	  	<result column="3일" property="day3" />	
+	  	<result column="4일" property="day4" />	
+	  	<result column="5일" property="day5" />	
+	  	<result column="6일" property="day6" />	
+	  	<result column="7일" property="day7" />	
+	  	<result column="8일" property="day8" />	
+	  	<result column="9일" property="day9" />	
+	  	<result column="10일" property="day10" />
+	  	<result column="11일" property="day11" />	
+	  	<result column="12일" property="day12" />	
+	  	<result column="13일" property="day13" />	
+	  	<result column="14일" property="day14" />	
+	  	<result column="15일" property="day15" />	
+	  	<result column="16일" property="day16" />	
+	  	<result column="17일" property="day17" />	
+	  	<result column="18일" property="day18" />	
+	  	<result column="19일" property="day19" />
+	  	<result column="20일" property="day20" />
+	  	<result column="21일" property="day21" />	
+	  	<result column="22일" property="day22" />	
+	  	<result column="23일" property="day23" />	
+	  	<result column="24일" property="day24" />	
+	  	<result column="25일" property="day25" />	
+	  	<result column="26일" property="day26" />	
+	  	<result column="27일" property="day27" />	
+	  	<result column="28일" property="day28" />	
+	  	<result column="29일" property="day29" />	
+	  	<result column="30일" property="day30" />
+	  	<result column="31일" property="day31" />			
+	</resultMap>
+		
+	
+	<resultMap id="PivotResult" type="egovframework.fusion.common.vo.MenuHistoryVO">
+	  	<result column="menu_id" property="menu_id" />
+	  	<result column="menu_name" property="menu_name" />
+	  	<result column="2020" property="year20" />
+	  	<result column="2021" property="year21" />
+	  	<result column="2022" property="year22"/>
+		<result column="2023" property="year23"/>	
+	</resultMap>	
+	
+	<!-- 피봇쿼리 -->
+	<select id="yearStatic" parameterType="MenuHistoryVO" resultMap="PivotResult">
+		SELECT *
+			FROM (
+			    SELECT TO_CHAR(M.MENU_DATE, 'YYYY') AS DAY
+			        , M.MENUHISTORY_ID AS MID
+			        , M.MENU_ID
+			        , U.MENU_NAME
+			    FROM (
+			        SELECT TO_DATE('2020-01-01', 'YYYY-MM-DD') + LEVEL - 1 AS DUMDATE
+			        FROM DUAL
+			        CONNECT BY  TO_DATE('2022-12-31', 'YYYY-MM-DD') >= TO_DATE('2020-01-01', 'YYYY-MM-DD') + LEVEL - 1
+			    ) D
+			    LEFT JOIN MENU_HISTORY M
+			    ON TO_CHAR(M.MENU_DATE, 'YYYY-MM-DD') = TO_CHAR(D.DUMDATE, 'YYYY-MM-DD')
+			    JOIN MENU U
+			    ON M.MENU_ID = U.MENU_ID
+			    ORDER BY DAY
+			)
+			PIVOT (
+			    COUNT(DISTINCT MID)
+			    FOR DAY IN (
+			        2020, 2021, 2022, 2023
+			    )
+			)
+	</select>
+	
+	
+	<!-- 일반 월,일,시간대 순으로 통계  -->
+	<select id="timeStatic"  parameterType="MenuHistoryVO" resultMap="TimeResult">
+		select menuname,
+			sum(case when time = '00' then CNT else 0 end) as "0시", 
+			sum(case when time = '01' then CNT else 0 end) as "1시",
+			sum(case when time = '02' then CNT else 0 end) as "2시",
+			sum(case when time = '03' then CNT else 0 end) as "3시",
+			sum(case when time = '04' then CNT else 0 end) as "4시",
+			sum(case when time = '05' then CNT else 0 end) as "5시",
+			sum(case when time = '06' then CNT else 0 end) as "6시",
+			sum(case when time = '07' then CNT else 0 end) as "7시",
+			sum(case when time = '08' then CNT else 0 end) as "8시",
+			sum(case when time = '09' then CNT else 0 end) as "9시",
+			sum(case when time = '10' then CNT else 0 end) as "10시",
+			sum(case when time = '11' then CNT else 0 end) as "11시",	
+			sum(case when time = '12' then CNT else 0 end) as "12시",
+			sum(case when time = '13' then CNT else 0 end) as "13시",
+			sum(case when time = '14' then CNT else 0 end) as "14시",
+			sum(case when time = '15' then CNT else 0 end) as "15시",
+			sum(case when time = '16' then CNT else 0 end) as "16시",
+			sum(case when time = '17' then CNT else 0 end) as "17시",
+			sum(case when time = '18' then CNT else 0 end) as "18시",
+			sum(case when time = '19' then CNT else 0 end) as "19시",
+			sum(case when time = '20' then CNT else 0 end) as "20시",
+			sum(case when time = '21' then CNT else 0 end) as "21시",
+			sum(case when time = '22' then CNT else 0 end) as "22시",
+			sum(case when time = '23' then CNT else 0 end) as "23시"
+	from(SELECT menuname , day, month, year, time, NVL(COUNT(time), 0) AS CNT
+			FROM (
+			  SELECT 
+			  	 TO_CHAR(m.menu_date, 'YYYY') AS year,
+			    TO_CHAR(m.menu_date, 'MM') AS month,
+			    TO_CHAR(m.menu_date, 'DD') as day,
+			    to_char(m.menu_date, 'HH24') as time,
+			    d.MENU_NAME AS menuname
+			  FROM menu d
+			  LEFT JOIN MENU_HISTORY m
+			    ON m.menu_id = d.menu_id
+	 			<if test="varyear != null and varyear != ''">
+			   	 	AND TO_CHAR(M.MENU_DATE, 'YYYY') = #{varyear}
+			   	 </if>
+			   	 <if test="varmonth != null and varmonth != ''">
+			   	 	AND TO_CHAR(M.MENU_DATE, 'MM') = TO_CHAR(TO_DATE(#{varmonth} , 'MM'), 'MM')
+			   	 </if>
+			   	 <if test="varday != null and varday != ''">
+			   	 	AND TO_CHAR(M.MENU_DATE, 'DD') = TO_CHAR(TO_DATE(#{varday} , 'DD'), 'DD')
+			   	 </if>
+			  ORDER BY menuname, year, month, day, time
+			) 
+			group by menuname, month,year, day, time
+			)group by menuname
+	</select>
+	
+	<select id="monthStatic"  parameterType="MenuHistoryVO" resultMap="monthResult">
+		SELECT MENUNAME, 
+			SUM(CASE WHEN MONTH = '01' THEN CNT ELSE 0 END) AS "1월",
+			SUM(CASE WHEN MONTH = '02' THEN CNT ELSE 0 END) AS "2월",
+			SUM(CASE WHEN MONTH = '03' THEN CNT ELSE 0 END) AS "3월",
+			SUM(CASE WHEN MONTH = '04' THEN CNT ELSE 0 END) AS "4월",
+			SUM(CASE WHEN MONTH = '05' THEN CNT ELSE 0 END) AS "5월",
+			SUM(CASE WHEN MONTH = '06' THEN CNT ELSE 0 END) AS "6월",
+			SUM(CASE WHEN MONTH = '07' THEN CNT ELSE 0 END) AS "7월",
+			SUM(CASE WHEN MONTH = '08' THEN CNT ELSE 0 END) AS "8월",
+			SUM(CASE WHEN MONTH = '09' THEN CNT ELSE 0 END) AS "9월",
+			SUM(CASE WHEN MONTH = '10' THEN CNT ELSE 0 END) AS "10월",
+			SUM(CASE WHEN MONTH = '11' THEN CNT ELSE 0 END) AS "11월",	
+			SUM(CASE WHEN MONTH = '12' THEN CNT ELSE 0 END) AS "12월"		
+		FROM(SELECT MENUNAME, MONTH, YEAR, NVL(COUNT(MONTH), 0) AS CNT
+				FROM (
+				  SELECT 
+				  	 TO_CHAR(M.MENU_DATE, 'YYYY') AS YEAR,
+				    TO_CHAR(M.MENU_DATE, 'MM') AS MONTH,
+				    D.MENU_NAME AS MENUNAME
+				  FROM MENU D
+				  LEFT JOIN MENU_HISTORY M
+				    ON M.MENU_ID = D.MENU_ID
+				    <if test="varyear != null and varyear != ''">
+				   	 AND TO_CHAR(M.MENU_DATE, 'YYYY') = #{varyear}
+				   	 </if>
+				  ORDER BY MENUNAME, MONTH, YEAR
+				) 
+				GROUP BY MENUNAME, MONTH,YEAR
+				)GROUP BY MENUNAME
+	</select>
+	
+	<select id="dayStatic"  parameterType="MenuHistoryVO" resultMap="DayResult">
+		SELECT MENUNAME, 
+			SUM(CASE WHEN DAY = '01' THEN CNT ELSE 0 END) AS "1일",
+			SUM(CASE WHEN DAY = '02' THEN CNT ELSE 0 END) AS "2일",
+			SUM(CASE WHEN DAY = '03' THEN CNT ELSE 0 END) AS "3일",
+			SUM(CASE WHEN DAY = '04' THEN CNT ELSE 0 END) AS "4일",
+			SUM(CASE WHEN DAY = '05' THEN CNT ELSE 0 END) AS "5일",
+			SUM(CASE WHEN DAY = '06' THEN CNT ELSE 0 END) AS "6일",
+			SUM(CASE WHEN DAY = '07' THEN CNT ELSE 0 END) AS "7일",
+			SUM(CASE WHEN DAY = '08' THEN CNT ELSE 0 END) AS "8일",
+			SUM(CASE WHEN DAY = '09' THEN CNT ELSE 0 END) AS "9일",
+			SUM(CASE WHEN DAY = '10' THEN CNT ELSE 0 END) AS "10일",
+			SUM(CASE WHEN DAY = '11' THEN CNT ELSE 0 END) AS "11일",	
+			SUM(CASE WHEN DAY = '12' THEN CNT ELSE 0 END) AS "12일",
+			SUM(CASE WHEN DAY = '13' THEN CNT ELSE 0 END) AS "13일",
+			SUM(CASE WHEN DAY = '14' THEN CNT ELSE 0 END) AS "14일",
+			SUM(CASE WHEN DAY = '15' THEN CNT ELSE 0 END) AS "15일",
+			SUM(CASE WHEN DAY = '16' THEN CNT ELSE 0 END) AS "16일",
+			SUM(CASE WHEN DAY = '17' THEN CNT ELSE 0 END) AS "17일",
+			SUM(CASE WHEN DAY = '18' THEN CNT ELSE 0 END) AS "18일",
+			SUM(CASE WHEN DAY = '19' THEN CNT ELSE 0 END) AS "19일",
+			SUM(CASE WHEN DAY = '20' THEN CNT ELSE 0 END) AS "20일",
+			SUM(CASE WHEN DAY = '21' THEN CNT ELSE 0 END) AS "21일",
+			SUM(CASE WHEN DAY = '22' THEN CNT ELSE 0 END) AS "22일",
+			SUM(CASE WHEN DAY = '23' THEN CNT ELSE 0 END) AS "23일",	
+			SUM(CASE WHEN DAY = '24' THEN CNT ELSE 0 END) AS "24일",
+			SUM(CASE WHEN DAY = '25' THEN CNT ELSE 0 END) AS "25일",		
+			SUM(CASE WHEN DAY = '26' THEN CNT ELSE 0 END) AS "26일",		
+			SUM(CASE WHEN DAY = '27' THEN CNT ELSE 0 END) AS "27일",
+			SUM(CASE WHEN DAY = '28' THEN CNT ELSE 0 END) AS "28일",		
+			SUM(CASE WHEN DAY = '29' THEN CNT ELSE 0 END) AS "29일",		
+			SUM(CASE WHEN DAY = '30' THEN CNT ELSE 0 END) AS "30일",		
+			SUM(CASE WHEN DAY = '31' THEN CNT ELSE 0 END) AS "31일"
+	FROM(SELECT MENUNAME , DAY, MONTH, YEAR, NVL(COUNT(DAY), 0) AS CNT
+			FROM (
+			  SELECT 
+			  	 TO_CHAR(M.MENU_DATE, 'YYYY') AS YEAR,
+			    TO_CHAR(M.MENU_DATE, 'MM') AS MONTH,
+			    TO_CHAR(M.MENU_DATE, 'DD') AS DAY,
+			    D.MENU_NAME AS MENUNAME
+			  FROM MENU D
+			  LEFT JOIN MENU_HISTORY M
+			    ON M.MENU_ID = D.MENU_ID
+			    <if test="varyear != null and varyear != ''">
+			   	 AND TO_CHAR(M.MENU_DATE, 'YYYY') = #{varyear}
+			   	 </if>
+			   	 <if test="varmonth != null and varmonth != ''">
+			   	 AND TO_CHAR(M.MENU_DATE, 'MM') = TO_CHAR(TO_DATE(#{varmonth} , 'MM'), 'MM')
+			   	 </if>
+			  ORDER BY MENUNAME, YEAR, MONTH, DAY
+			) 
+			GROUP BY MENUNAME, MONTH,YEAR, DAY
+			)GROUP BY MENUNAME
+	</select>
+	
+	
+	<select id="headerSrchList" parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT 
+		    NULL AS BOARD_ID,
+		    S.SERVEY_ID,
+		    NULL AS GALARY_ID,
+		    S.TITLE,
+		    S.WRITER,
+		    S.MENU_ID,
+		    C.M_CATEGORY_NAME,
+		    M.MENU_NAME,
+		    NULL AS BCATEGORY,
+		    NULL AS GCATEGORY,
+		    NULL AS PARENT_ID,
+		    NULL AS RNUM,
+		    NULL AS "TAG_NAME",
+		    NULL AS FILE_NAME,
+		    NULL AS ORIGINAL_NAME,
+		    NULL AS FILE_ROUTE,
+		    M.AUTH_ID,
+		    (SELECT USER_NAME FROM USERS WHERE USER_ID = S.WRITER) AS WRITERNAME
+		FROM SERVEY S 
+		JOIN MENU M ON S.MENU_ID = M.MENU_ID
+		JOIN MENU_CATEGORY C ON M.MENU_CATEGORY = C.M_CATEGORY_ID
+		WHERE 1=1
+		AND M.AUTH_ID >= #{auth_id} 	
+		<if test="search_type!=null and search_word != null">	
+			  <if test='search_type == "writer" '>
+			 	 AND ( S.WRITER IN (
+							        SELECT U.USER_ID
+							        FROM USERS U
+							        WHERE U.USER_NAME LIKE '%'|| #{search_word} || '%'
+								    )
+				    )			  
+				</if>
+			  <if test='search_type == "title" '>
+			 	AND (S.TITLE LIKE '%'||#{search_word}||'%') 
+			 </if>
+			<if test='search_type == "whole"'>
+				AND(
+					S.TITLE LIKE '%' ||#{search_word}|| '%' 
+					OR S.WRITER IN (
+							        SELECT U.USER_ID
+							        FROM USERS U
+							        WHERE U.USER_NAME LIKE '%'|| #{search_word} || '%'
+								    )
+				)
+			</if>
+		 </if>
+		
+		UNION ALL
+		
+		SELECT * 
+			FROM (SELECT 
+		    B.BOARD_ID,
+		    NULL AS SERVEY_ID,
+		    NULL AS GALARY_ID,
+		    B.TITLE,
+		    B.WRITER,
+		    M.MENU_ID,
+		    C.M_CATEGORY_NAME,
+		    M.MENU_NAME,
+		    B.CATEGORY AS BCATEGORY,
+		    NULL AS GCATEGORY,
+		    B.PARENT_ID,
+		   ROW_NUMBER() OVER(PARTITION BY M.MENU_ID ORDER BY  B.REGISTER_DT) AS RNUM,
+		    NULL AS "TAG_NAME",
+		    NULL AS FILE_NAME,
+		    NULL AS ORIGINAL_NAME,
+		    NULL AS FILE_ROUTE,
+		    M.AUTH_ID,
+		    NULL AS WRITERNAME
+		FROM BOARD B 
+		JOIN MENU M ON B.MENU_ID = M.MENU_ID
+		JOIN MENU_CATEGORY C ON M.MENU_CATEGORY = C.M_CATEGORY_ID
+		WHERE 1=1
+		AND M.AUTH_ID >= #{auth_id}
+		AND B.CATEGORY != 3
+		<if test="search_type!=null and search_word != null">	
+			  <if test='search_type == "writer" '>
+			 	AND( B.WRITER LIKE '%'||#{search_word}||'%')
+			  </if>
+			  <if test='search_type == "title" '>
+			 	AND( B.TITLE LIKE '%'||#{search_word}||'%' )
+			 </if>
+			 <if test='search_type == "content" '>
+			 	AND( B.CONTENT LIKE '%'||#{search_word}||'%')
+			 </if>
+			 <if test='search_type == "whole"'>
+				AND(
+					 B.WRITER LIKE '%'||#{search_word}||'%'
+					OR B.TITLE LIKE '%'||#{search_word}||'%' 
+					OR B.CONTENT LIKE '%'||#{search_word}||'%'
+				)
+			</if>
+		 </if>
+		 AND B.DEL_YN = 'n'
+		 )BB
+		 WHERE 5>=BB.RNUM
+		
+		
+		UNION ALL
+		
+		SELECT * 
+			FROM(SELECT 
+		    NULL AS BOARD_ID,
+		    NULL AS SERVEY_ID,
+		    G.GALARY_ID,
+		    G.TITLE,
+		    G.WRITER,
+		    G.MENU_ID,
+		    C. M_CATEGORY_NAME,
+		    U.MENU_NAME AS MENU_NAME,
+		    NULL AS BCATEGORY,
+		    G.CATEGORY AS GCATEGORY, 
+		    NULL AS PARENT_ID,
+		     ROW_NUMBER() OVER(PARTITION BY G.MENU_ID ORDER BY  G.REGISTER_DT) AS RNUM,
+		    NVL((
+		        SELECT LISTAGG(TAG_NAME, ',') WITHIN GROUP (ORDER BY TAG_NAME)
+		        FROM TAGS
+		        WHERE GALARY_ID = G.GALARY_ID
+		        GROUP BY GALARY_ID
+		    ), 'NULL') AS "TAG_NAME",
+		    M.FILE_NAME,
+		    M.ORIGINAL_NAME,
+		    M.FILE_ROUTE,
+		    U.AUTH_ID,
+		    (SELECT USER_NAME FROM USERS WHERE USER_ID = G.WRITER) AS WRITERNAME
+		FROM GALARY G
+		LEFT JOIN MEDIA M ON G.GALARY_ID = M.GALARY_ID
+		JOIN MENU U
+		ON G.MENU_ID = U.MENU_ID
+		JOIN MENU_CATEGORY C
+		ON U.MENU_CATEGORY = C.M_CATEGORY_ID
+	    WHERE M.FILE_NAME LIKE '%Resizethumnail%'
+		    AND M.DEL_YN = 'n'
+		    AND G.DEL_YN = 'n'
+		    AND U.AUTH_ID >= #{auth_id}
+		     <if test="search_type!=null and search_word != null">
+			     <if test='search_type == "writer" '>
+			    	AND ( G.WRITER IN (
+							        SELECT U.USER_ID
+							        FROM USERS U
+							        WHERE U.USER_NAME LIKE '%'|| #{search_word} || '%'
+								    )
+				    )
+			    </if>
+			     <if test='search_type == "title" '>
+			     AND(G.TITLE LIKE '%' || #{search_word} || '%')
+			    </if>
+			    <if test='search_type == "content" '>
+			    AND( G.CONTENT LIKE '%' || #{search_word}|| '%')
+			    </if>
+			    <if test='search_type == "whole"'>
+				AND (G.WRITER IN (
+							        SELECT U.USER_ID
+							        FROM USERS U
+							        WHERE U.USER_NAME LIKE '%'|| #{search_word} || '%'
+								    )
+						OR G.TITLE LIKE '%'||#{search_word}||'%' 
+						OR G.CONTENT LIKE '%'||#{search_word}||'%'
+	       					 )
+	       		</if>
+		    </if>
+		ORDER BY G.GALARY_ID DESC)BB
+		 WHERE 5>=BB.RNUM
+
+	</select>
+	
+	
+	<select id="ckmenuname" parameterType="MenuVO" resultType="Integer">
+		SELECT COUNT(*) 
+		FROM MENU
+		WHERE MENU_NAME = #{menu_name}
+	</select>
+	
+	<select id="galaryMenu" resultType="MenuVO">
+		SELECT * FROM MENU
+		WHERE MENU_CATEGORY = 2
+		ORDER BY MENU_ID	
+	</select>
+</mapper>

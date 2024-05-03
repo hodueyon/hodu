@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.fusion.survey.service.SurveyMapper">
+	
+	<select id="surveyQList" resultType="QuestionVO" parameterType="QuestionVO">
+	 	SELECT * FROM
+	 	SERVEY
+	</select>
+	
+	<!--총 count숫자 -->
+	<select id="cntQuestion" resultType="Integer" parameterType="Integer">
+		SELECT COUNT(*)
+		FROM SURVEY_QUESTION
+		WHERE SERVEY_ID = #{servey_id}
+	</select>
+	
+	<!-- 질문리스트 페이징처리 -->
+	<select id="surveyQList" parameterType="QuestionVO" resultType="QuestionVO">
+		SELECT * FROM 
+				(SELECT Q.QUESTION_ID
+				, Q.QUESTION_CATEGORY
+				, Q.QUESTION_NUM
+				, Q.QUESTION_NUM_CHILD
+				, Q.SERVEY_ID
+				, Q.QUESTION_CONTENT
+				, Q.QUESTION_TYPE
+				, Q.MAX_CHOICE_CNT
+				, Q.ESSENTIAL_YN
+				, ROWNUM RN 
+				 FROM SURVEY_QUESTION Q
+				 WHERE SERVEY_ID = #{servey_id}
+				AND QUESTION_TYPE NOT IN 3
+				ORDER BY  QUESTION_NUM ASC, QUESTION_NUM_CHILD ASC
+				)	
+	</select>
+	
+	<!-- 답변리스트 -->
+	<select id="answerList" parameterType="Integer" resultType="AnswerVO">
+		SELECT * 
+		FROM SURVEY_ANSWER
+		WHERE SURVEY_ID = #{survey_id}
+	</select>
+</mapper>

@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.fusion.progressBrd.service.ProgressMapper">
+	
+	
+<!-- 관리자목록  -->
+	<select id="managerList" resultType="UserVO">
+		SELECT * 
+		FROM USERS
+		WHERE 3 > AUTH 
+		ORDER BY USER_ID
+	</select>
+	
+	<!-- 글등록 -->
+	<insert id="inputBrd" parameterType="progressVO">
+		INSERT INTO PROGRESS_BRD (BOARD_ID, TITLE, CONTENT, WRITER, REGISTER_DT, MENU_ID, MANAGER, PROGRESS, STATUS)
+		VALUES (
+				PRO_SEQ.NEXTVAL
+			   ,#{title}
+			   ,#{content}
+			   ,#{writer}
+			   ,SYSDATE
+			   ,#{menu_id}
+			   ,#{manager}
+			   , 'E01'
+			   , 0
+			   )
+	</insert>
+	
+	<select id="getAllBrd" parameterType="progressVO" resultType="progressVO">
+		SELECT *
+		FROM (
+		    SELECT ROWNUM AS RN, C.*
+		    FROM (
+		        SELECT 
+		            B.BOARD_ID,
+		            B.TITLE,
+		            B.WRITER,
+		            (
+		                SELECT USER_NAME
+		                FROM USERS
+		                WHERE B.WRITER = USER_ID
+		            ) AS "WRITER_NAME",
+		            B.CONTENT,
+		            B.REGISTER_DT,
+		            B.MENU_ID,
+		            (
+		                SELECT USER_NAME
+		                FROM USERS
+		                WHERE B.MANAGER = USER_ID
+		            ) AS "MANAGER",
+		            (
+		                SELECT SUB_NAME
+		                FROM SUB_COMMON
+		                WHERE B.PROGRESS = SUB_ID
+		            ) AS "PROGRESS",
+		            B.STATUS
+		        FROM PROGRESS_BRD B
+		        WHERE 
+		            MENU_ID = #{menu_id}
+		            AND (
+		                (PROGRESS = #{progress})
+		                <if test="progress == 'E04'">
+		                    OR (PROGRESS = 'E02' AND STATUS = 1)
+		                </if>
+		            )
+		            <if test="writer != null">
+		                AND WRITER = #{writer}
+		            </if>
+		            <if test="manager != null">
+		                AND MANAGER = #{manager}
+		            </if>
+		        ORDER BY B.REGISTER_DT DESC
+		    ) C
+		)
+		WHERE RN BETWEEN #{start} AND #{end}
+	</select>
+	
+	<select id="cntTotal" parameterType="progressVO" resultType="Integer">
+		SELECT COUNT(*)
+		FROM PROGRESS_BRD
+		WHERE MENU_ID = #{menu_id}
+        AND PROGRESS = #{progress}
+        <if test="writer != null">
+        AND WRITER = #{writer}
+        </if>
+        <if test="manager != null">
+        AND MANAGER = #{manager}
+        </if>
+	</select>
+	
+	<!-- 한글조회 -->
+	<select id="getOnePost" parameterType="Integer" resultType="progressVO">
+		SELECT BOARD_ID
+				, TITLE
+				, CONTENT
+				, WRITER
+				, (SELECT USER_NAME FROM USERS WHERE B.WRITER = USER_ID) AS "WRITER_NAME"
+				,REGISTER_DT
+				, MENU_ID
+				, MANAGER
+				, (SELECT USER_NAME FROM USERS WHERE B.MANAGER = USER_ID) AS "MAG_NAME"
+				,PROGRESS
+				, STATUS
+		FROM PROGRESS_BRD b
+		WHERE BOARD_ID = #{board_id}
+	</select>
+	
+	<!-- 나에게만 해당되는 탭 뿌리기  -->
+	<select id="getmyTabs" parameterType="progressVO" resultType="SubCommonVO">
+			SELECT DISTINCT SUB_ID, SUB_NAME 
+			FROM SUB_COMMON S JOIN PROGRESS_BRD B
+			ON S.SUB_ID = B.PROGRESS
+			<if test="writer != null">
+			WHERE B.WRITER = #{writer}
+			</if>
+			ORDER BY SUB_ID 
+	</select>
+	
+	<!-- 관리자용탭  -->
+	<select id="getMagTabs" resultType="SubCommonVO">
+			SELECT DISTINCT SUB_ID, SUB_NAME 
+			FROM SUB_COMMON
+			WHERE SUB_ID LIKE 'E%'
+			ORDER BY SUB_ID
+	</select>
+	<!-- 첫 검토 답 입력-->
+	<insert id="inputFirstDecision" parameterType="ckoverVO">
+		INSERT INTO CKOVERBRD
+		VALUES(CK_SEQ.NEXTVAL, #{content}, SYSDATE, #{board_id})
+	</insert>
+	
+	<!-- 수정! -->
+	<update id="updateBoard" parameterType="progressVO">
+		UPDATE PROGRESS_BRD
+		SET TITLE = #{title},
+		CONTENT = #{content},
+		<if test="manager != null">
+			MANAGER = #{manager}
+		</if>
+		WHERE BOARD_ID = #{board_id} 
+	</update>
+	
+	<!-- 상태 및 진행단계 수정 -->
+	<update id="updateStepStatus" parameterType="progressVO">
+		UPDATE PROGRESS_BRD
+		SET PROGRESS = #{progress}
+		<if test="status != null">
+		, STATUS = #{status}
+		</if>
+		WHERE BOARD_ID = #{board_id}
+	</update>
+	
+	<!-- 첫피드백 -->
+	<select id="getFirstFeedback" parameterType="Integer" resultType="ckoverVO">
+		SELECT * FROM CKOVERBRD
+		WHERE BOARD_ID = #{board_id}
+	</select>
+	
+	<!-- 이의제기 등록 -->
+	<insert id="inputUserObject" parameterType="ObjectVO">
+		INSERT INTO OBJECTBRD(OBJECT_ID, USER_CONTENT, REGISTER_DT, BOARD_ID)
+		VALUES(OBJECT_SEQ.NEXTVAL, #{user_content}, SYSDATE, #{board_id})
+	</insert> 
+	
+	<!-- 가장 최근의 이의제기 한건  -->
+	<select id="getRecentObject" parameterType="Integer" resultType="ObjectVO">
+		SELECT *
+		FROM (
+		    SELECT *
+		    FROM OBJECTBRD
+		    WHERE BOARD_ID  = #{board_id}
+		     ORDER BY OBJECT_ID DESC
+		)
+		WHERE ROWNUM = 1
+	</select>
+	
+
+	<!-- 이의제기 수정 -->
+	<update id="editMyObject" parameterType="ObjectVO">
+		UPDATE OBJECTBRD
+		SET USER_CONTENT = #{user_content}
+		WHERE OBJECT_ID = #{object_id}
+	</update>
+	
+	<!-- 갯수새기 , 차수용 -->
+	<select id="cntObject" parameterType="Integer" resultType="Integer">
+		SELECT COUNT(*)
+		FROM OBJECTBRD
+		WHERE BOARD_ID = #{board_id}
+	</select>
+	
+	<!-- 이의제기 답변달기 -->
+	<update id="inputObjectReply" parameterType="ObjectVO">
+		UPDATE OBJECTBRD
+		SET REPLY_CONTENT = #{reply_content}
+		WHERE OBJECT_ID = #{object_id}
+	</update>
+	
+	<select id="getAllObject" parameterType="Integer" resultType="ObjectVO">
+		SELECT *
+	    FROM OBJECTBRD
+	    WHERE BOARD_ID  = #{board_id}
+	</select> 
+	
+	<select id="getTabsForNoBrd" resultType="SubCommonVO">
+		SELECT DISTINCT SUB_ID, SUB_NAME 
+		FROM SUB_COMMON
+		WHERE SUB_ID LIKE 'E01'
+		ORDER BY SUB_ID
+	</select>
+</mapper>

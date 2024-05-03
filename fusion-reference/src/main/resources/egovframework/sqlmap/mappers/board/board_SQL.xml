@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.fusion.board.service.BoardMapper">
+	
+	
+	<select id="getRecentNotice" resultType="boardVo">
+		SELECT BOARD_ID, TITLE, WRITER, CONTENT, REGISTER_DT, ROWNUM RN
+		FROM (
+		    SELECT BOARD_ID, TITLE, WRITER, CONTENT, REGISTER_DT, ROWNUM RN
+		    FROM BOARD
+		    WHERE DEL_YN = 'n' AND CATEGORY = 1
+		    AND MENU_ID = #{menu_id}
+		    ORDER BY REGISTER_DT DESC
+		)
+		WHERE ROWNUM = 1;
+		
+	</select>
+	<select id = "getNoticeList" resultType="boardVo">
+		SELECT * FROM 
+				(SELECT B.BOARD_ID
+				, B.TITLE
+				, B.WRITER
+				, B.CONTENT
+				, B.DEL_YN
+				, B.REGISTER_DT
+				, ROWNUM RN 
+				, B.MENU_ID
+				, (SELECT COUNT(*) FROM HISTORY WHERE BOARD_ID = B.BOARD_ID) as "CNT"
+				, LEVEL
+				 FROM BOARD B
+				 WHERE DEL_YN = 'n'
+				 AND CATEGORY = 1
+				 AND MENU_ID = #{menu_id}
+				 START WITH PARENT_ID = 0
+				CONNECT BY PRIOR BOARD_ID = PARENT_ID
+				ORDER SIBLINGS BY BOARD_ID
+				 )
+			<where> 1=1
+					<if test="search_type!=null and search_word != null and search_type != '' and search_word != ''">
+						 	<if test='search_type == "writer" '>
+								AND WRITER LIKE '%'||#{search_word}||'%' 
+							</if>
+							<if test='search_type == "title" '>			 	
+								AND TITLE LIKE '%'||#{search_word}||'%'
+							</if>
+							<if test='search_type == "content"'>
+								AND CONTENT LIKE '%'||#{search_word}||'%'
+							</if>
+							<if test='search_type == "whole"'>
+								AND (WRITER LIKE '%'||#{search_word}||'%' OR TITLE LIKE '%'||#{search_word}||'%' OR CONTENT LIKE '%'||#{search_word}||'%')
+							</if>
+					 	</if>
+			</where>
+			ORDER BY REGISTER_DT DESC
+			FETCH FIRST 5 ROWS ONLY 
+	</select>
+	
+	<select id="getBoardList" resultType="boardVo"  parameterType="boardVo">
+	SELECT * FROM 
+				(SELECT B.BOARD_ID
+				, B.TITLE
+				, B.WRITER
+				, B.CATEGORY
+				, B.PARENT_ID
+				, B.CONTENT
+				, B.DEL_YN
+				, B.REGISTER_DT
+				,  B.MENU_ID
+				, ROWNUM RN 
+				, (SELECT COUNT(*) FROM HISTORY WHERE BOARD_ID = B.BOARD_ID) as "CNT"
+				, LEVEL
+				 FROM BOARD B
+				 WHERE 1=1
+				 <if test="search_type!=null and search_word != null and search_type != '' and search_word != ''">
+						 	<if test='search_type == "writer" '>
+								AND WRITER LIKE '%'||#{search_word}||'%'
+								AND DEL_YN = 'n'
+							</if>
+							<if test='search_type == "title" '>			 	
+								AND TITLE LIKE '%'||#{search_word}||'%'
+								AND DEL_YN = 'n'
+							</if>
+							<if test='search_type == "content"'>
+								AND CONTENT LIKE '%'||#{search_word}||'%'
+								AND DEL_YN = 'n'
+							</if>
+							<if test='search_type == "whole"'>
+								AND (WRITER LIKE '%'||#{search_word}||'%' OR TITLE LIKE '%'||#{search_word}||'%' OR CONTENT LIKE '%'||#{search_word}||'%')
+								AND DEL_YN = 'n'
+							</if>
+					 	</if>
+				        AND (CATEGORY != 1 OR (CATEGORY = 1 AND DEL_YN = 'n'))
+				        AND MENU_ID = #{menu_id}
+				        AND CATEGORY != 3
+				START WITH PARENT_ID = 0
+				CONNECT BY PRIOR BOARD_ID = PARENT_ID
+				ORDER SIBLINGS BY CATEGORY ASC, BOARD_ID DESC
+				 )
+				 WHERE RN BETWEEN #{start} AND #{end}
+
+	</select>
+	
+
+	<insert id="insBoardPost" parameterType="boardVo">
+		INSERT INTO BOARD 
+		VALUES (
+				BRD_SEQ.NEXTVAL
+				,#{category}
+				,#{parent_id}
+			   ,#{title}
+			   ,#{content}
+			   ,#{writer}
+			   ,'n'
+			   ,SYSDATE
+			   ,SYSDATE
+			   ,#{menu_id}
+			   )
+	</insert>
+
+	<select id="getBoardPost" resultType="boardVo" parameterType="boardVo">
+	    SELECT A.BOARD_ID
+           	 , A.TITLE
+           	 , A.CATEGORY
+           	 , A.CONTENT
+           	 , A.WRITER
+           	 , A.DEL_YN
+           	 , A.REGISTER_DT
+           	 , A.UPDATE_DT
+           	 , A.MENU_ID
+          FROM BOARD A
+         WHERE BOARD_ID = #{board_id}
+	</select>
+
+	<update id="updBoardCnt" parameterType="boardVo">
+		UPDATE BOARD
+		   SET BOARD_CNT = (BOARD_CNT + 1)
+		 WHERE BOARD_ID = #{board_id}
+	</update>
+	
+	<update id="updBoardPost" parameterType="boardVo">
+		UPDATE BOARD
+		   SET TITLE = #{title}
+		     , CONTENT = #{content}
+		 WHERE BOARD_ID = #{board_id}
+	</update>
+	
+	<update id="delBoardPost" parameterType="boardVo">
+		UPDATE BOARD
+		   SET DEL_YN = 'y'
+		 WHERE BOARD_ID = #{board_id}
+	</update>
+	
+
+	<update id="delChkBoardPost" parameterType="boardVo">
+		UPDATE BOARD
+		   SET DEL_YN = 'y'
+		 WHERE BOARD_ID in
+		  <foreach item="numArr" index="index" collection="list"
+		      open="(" separator="," close=")">
+		        #{numArr}
+		  </foreach>
+	</update>
+	
+	<select id="cntBoard" resultType="Integer" parameterType="boardVo">
+		SELECT COUNT(*)
+		FROM BOARD
+		WHERE menu_id = #{menu_id}
+			<if test="search_type!=null and search_word != null and search_type != '' and search_word != ''">
+				
+			 	<if test='search_type == "writer" '>
+					AND WRITER LIKE '%'||#{search_word}||'%'
+					AND DEL_YN = 'n'
+				</if>
+				<if test='search_type == "title" '>			 	
+					AND TITLE LIKE '%'||#{search_word}||'%'
+					AND DEL_YN = 'n'
+				</if>
+				<if test='search_type == "content"'>
+					AND CONTENT LIKE '%'||#{search_word}||'%'
+					AND DEL_YN = 'n'
+				</if>
+				<if test='search_type == "whole"'>
+					AND (WRITER LIKE '%'||#{search_word}||'%' OR TITLE LIKE '%'||#{search_word}||'%' OR CONTENT LIKE '%'||#{search_word}||'%')
+					AND DEL_YN = 'n'
+				</if>
+		 	</if>
+		
+	</select>
+	
+	<insert id="insHistory" parameterType="HistoryVO">
+		INSERT 
+		INTO HISTORY
+		VALUES(CONCAT('H', HISTORY_SEQ.NEXTVAL)
+				,#{user_name}
+				, #{board_id}
+				,SYSDATE)
+	</insert>
+	
+	<select id="ckHistory"  parameterType="HistoryVO" resultType="Integer">
+		 SELECT COUNT(*)
+          FROM HISTORY
+         WHERE USER_NAME = #{user_name}
+         AND TRUNC(CNT_DATE) = TRUNC(SYSDATE)
+         AND BOARD_ID = #{board_id}
+	</select> 
+	
+	<select id="upperDuplicateCk" parameterType="String" resultType="Integer">
+	
+	</select>
+
+</mapper>

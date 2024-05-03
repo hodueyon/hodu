@@ -1,0 +1,809 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.fusion.galary.service.GalaryMapper">
+	
+	<!-- 조회 -->
+	<select id="getGalaryList" parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT *
+			FROM (SELECT ROWNUM as RN, B.*
+			FROM (
+			    SELECT G.GALARY_ID,
+			           G.TITLE,
+			           G.WRITER,
+			           G.CATEGORY,
+			           G.CONTENT,
+			           G.DEL_YN,
+			           G.REGISTER_DT,
+			           G. MENU_ID,
+			           (
+			               SELECT COUNT(*)
+			               FROM GALARY_HISTORY
+			               WHERE GALARY_ID = G.GALARY_ID
+			           ) AS "CNT",
+			           (
+			               SELECT COUNT(*)
+			               FROM LIKES
+			               WHERE GALARY_ID = G.GALARY_ID
+			               AND CANCEL_YN = 'n' 
+			           ) AS "LIKESCNT",
+				       NVL((
+				           SELECT LISTAGG(TAG_NAME, ',') WITHIN GROUP (ORDER BY TAG_NAME)
+				           FROM TAGS
+				           WHERE GALARY_ID = G.GALARY_ID
+				           GROUP BY GALARY_ID
+				       ), 'null') AS "TAG_NAME",
+			           M.FILE_NAME,
+			           M.ORIGINAL_NAME,
+			           M.FILE_ROUTE
+			    FROM GALARY G
+			    LEFT JOIN MEDIA M ON G.GALARY_ID = M.GALARY_ID
+			    WHERE M.FILE_NAME LIKE '%Resizethumnail%'
+			    AND M.DEL_YN = 'n'
+			    AND G.DEL_YN = 'n'
+			    AND G.MENU_ID = #{menu_id}
+			    			 <if test="category != null">
+						      AND CATEGORY = #{category}
+						    </if>
+						     <if test="search_type!=null and search_word != null">
+						        <if test='search_type == "writer" '>
+						          AND WRITER IN (SELECT U.USER_ID
+													FROM USERS U
+													WHERE U.USER_NAME LIKE '%'|| #{search_word}|| '%')
+						          AND G.DEL_YN = 'n'
+						        </if>
+						        <if test='search_type == "title" '>
+						          AND  TITLE LIKE '%' || #{search_word} || '%'
+						          AND G.DEL_YN = 'n'
+						        </if>
+						        <if test='search_type == "content"'>
+						          AND CONTENT LIKE '%' || #{search_word} || '%'
+						          AND G.DEL_YN = 'n'
+						        </if>
+								 <if test='search_type == "tag_name"'>
+						          AND G.GALARY_ID IN (SELECT T.GALARY_ID
+						          					FROM TAGS T
+						          					WHERE TAG_NAME = #{search_word})
+						          AND G.DEL_YN = 'n'
+								</if>
+								 <if test='search_type == "image_name"'>
+						          AND G.GALARY_ID IN (SELECT M.GALARY_ID
+						          					FROM MEDIA M
+						          					WHERE M.ORIGINAL_NAME LIKE '%'|| #{search_word}|| '%')
+						          AND G.DEL_YN = 'n'
+								</if>
+								<if test='search_type == "whole"'>
+									AND (WRITER LIKE '%'||#{search_word}||'%' 
+											OR TITLE LIKE '%'||#{search_word}||'%' 
+											OR CONTENT LIKE '%'||#{search_word}||'%'
+											OR G.GALARY_ID IN (SELECT M.GALARY_ID
+									          					FROM MEDIA M
+									          					WHERE M.ORIGINAL_NAME LIKE '%'|| #{search_word}|| '%')
+			          					 )
+									
+									AND G.DEL_YN = 'n'
+								</if>
+						 	</if>
+					ORDER BY  G.GALARY_ID desc
+					)B
+					)
+					WHERE RN BETWEEN #{start} AND #{end}
+	</select>
+	
+	
+	
+	
+	
+	<!-- 게시물 갯수 -->
+	<select id="cntGalary" parameterType="GalaryVO" resultType="Integer">
+		SELECT COUNT( DISTINCT G.GALARY_ID)
+		FROM GALARY G LEFT JOIN MEDIA M
+		ON G.GALARY_ID = M.GALARY_ID 
+		WHERE M.FILE_NAME LIKE '%Resizethumnail%' 
+		AND M.DEL_YN = 'n'
+		AND G.DEL_YN = 'n'
+		AND G.MENU_ID = #{menu_id}
+					<if test="category != null">
+					      AND CATEGORY = #{category}
+					 </if>
+					<if test="search_type!=null and search_word != null and search_type != '' and search_word != ''">
+					 	<if test='search_type == "writer" '>
+							AND WRITER IN (SELECT U.USER_ID
+											FROM USERS U
+											WHERE U.USER_NAME LIKE '%'|| #{search_word}|| '%')
+						</if>
+						<if test='search_type == "title" '>			 	
+							AND TITLE LIKE '%'||#{search_word}||'%'
+						</if>
+						<if test='search_type == "content"'>
+							AND CONTENT LIKE '%'||#{search_word}||'%'
+						</if>
+						<if test='search_type == "tag_name"'>
+					          AND G.GALARY_ID IN (SELECT T.GALARY_ID
+					          					FROM TAGS T
+					          					WHERE TAG_NAME LIKE '%'|| #{search_word}||'%')
+						</if>
+						<if test='search_type == "image_name"'>
+					          AND G.GALARY_ID IN (SELECT M.GALARY_ID
+					          					FROM MEDIA M
+					          					WHERE M.ORIGINAL_NAME LIKE '%'|| #{search_word}|| '%')
+						</if>
+						<if test='search_type == "whole"'>
+									AND(WRITER LIKE '%'||#{search_word}||'%' 
+											OR TITLE LIKE '%'||#{search_word}||'%' 
+											OR CONTENT LIKE '%'||#{search_word}||'%'
+											OR G.GALARY_ID IN (SELECT M.GALARY_ID
+									          					FROM MEDIA M
+									          					WHERE M.ORIGINAL_NAME LIKE '%'|| #{search_word}|| '%'))
+									AND G.DEL_YN = 'n'
+						</if>
+				 	</if>	
+	</select>
+	
+	<!-- 게시물등록 -->
+	<insert id="insGalaryPost" parameterType="GalaryVO">
+		<selectKey keyProperty="galary_id" resultType="Integer"
+				order="BEFORE">
+				SELECT GAL_SEQ.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO GALARY
+		VALUES(#{galary_id}, #{category}, #{title}, #{content}, #{writer}, 'n', SYSDATE, SYSDATE, #{menu_id})
+	</insert>
+	
+	<!-- 이미지 등록 -->
+	<insert id="insImage" parameterType="MediaVO">
+			<selectKey keyProperty="media_id" resultType="Integer"
+				order="BEFORE">
+				SELECT MEDIA_SEQ.NEXTVAL FROM DUAL
+			</selectKey>
+		INSERT INTO MEDIA
+		VALUES(#{media_id},#{original_name},#{file_name},#{file_route},#{del_yn},#{thumnail_yn},#{galary_id},#{file_size}, 0)
+	</insert>
+	
+	<!-- 태그 넣기 -->
+	<insert id="insTags" parameterType="GalaryVO">
+	  <if test="tagArr != null">
+	      INSERT INTO TAGS(TAG_ID, TAG_NAME, GALARY_ID)
+	       VALUES 
+	       <foreach collection="tagArr" item="t" index="idx" separator=",">
+	      	( TAG_SEQ.NEXTVAL, #{t}, #{galary_id})
+	    	</foreach>
+	  </if>
+	</insert>
+	
+	<!-- 한건 조회 -->
+	<select id="getGalary" parameterType="Integer" resultType="GalaryVO">
+		SELECT G.CONTENT,
+		 	G.WRITER,
+	  		G.GALARY_ID,
+		  	G.REGISTER_DT,
+		    U.USER_NAME,
+		    G.TITLE,
+		    G.CATEGORY,
+		    G.MENU_ID,
+		     (
+               SELECT COUNT(*)
+               FROM GALARY_HISTORY
+               WHERE GALARY_ID = G.GALARY_ID
+               AND GALARY_ID = #{galary_id}
+           ) AS "CNT",
+           (
+               SELECT COUNT(*)
+               FROM LIKES
+               WHERE GALARY_ID = G.GALARY_ID
+               AND CANCEL_YN = 'n' 
+               AND GALARY_ID = #{galary_id}
+           ) AS "LIKESCNT"
+ 		FROM
+		GALARY G  JOIN USERS U
+		ON G.WRITER = U.USER_ID
+		WHERE G.GALARY_ID = #{galary_id}
+	</select>
+	
+	<!-- 모든 사진파일 가져오기 -> 리사이징한거만  -->
+	<select id="getAllResize" parameterType="MediaVO" resultType="MediaVO">
+		SELECT * 
+		FROM MEDIA
+		WHERE FILE_NAME LIKE '%' || 'Resize' || '%'
+		AND GALARY_ID = #{galary_id}
+		 AND DEL_YN = 'n'
+	</select> 
+	
+	<!-- 조회수 여부체크 -->
+	<select id="CkGalHistory" parameterType="GalHistoryVO" resultType="Integer">
+		SELECT COUNT(*)
+		FROM GALARY_HISTORY
+		WHERE GALARY_ID = #{galary_id}
+		AND TO_CHAR(SYSDATE, 'YYYY-MM-DD') = TO_CHAR(CNT_DATE , 'YYYY-MM-DD')
+		AND USER_ID = #{user_id}
+	</select>
+	
+	<!-- 조회수 등록 -->
+	<insert id="InsGalHistory" parameterType="GalHistoryVO">
+		INSERT 
+		INTO GALARY_HISTORY
+		VALUES(GALHIS_SEQ.NEXTVAL
+				,#{user_id}
+				, #{galary_id}
+				,SYSDATE)
+	</insert>
+	
+	<!-- 좋아요 여부 확인 -->
+	<select id="ckLikes" parameterType="LikeVO" resultType="Integer">
+		SELECT COUNT(*)
+		FROM LIKES
+		WHERE GALARY_ID = #{galary_id}
+		AND USER_ID = #{user_id}
+		AND CANCEL_YN = 'n'	
+	</select>
+	
+	<!-- 좋아요 하기 -->
+	<insert id="InsLikes" parameterType="LikeVO">
+		<selectKey keyProperty="like_id" resultType="Integer" order="BEFORE">
+		SELECT LIKES_SEQ.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO LIKES
+		VALUES( #{like_id}, #{galary_id}, #{user_id}, SYSDATE, #{cancel_yn})
+	</insert>
+	
+	<!-- 좋아요 취소 -->
+	<update id="delLikes" parameterType="LikeVO">
+		UPDATE LIKES
+		SET CANCEL_YN = 'y'
+		WHERE GALARY_ID = #{galary_id}
+		AND USER_ID = #{user_id}
+	</update>
+	
+	<!-- 글삭제 -->
+	<update id="delGalaryPost" parameterType="GalaryVO">
+		UPDATE GALARY
+		SET DEL_YN = 'y'
+		WHERE GALARY_ID = #{galary_id} 
+	</update>
+	
+	<!-- 태그조회 -->
+	<select id="getTags" parameterType="Integer" resultType="TagsVO">
+		SELECT * 
+		FROM TAGS
+		WHERE GALARY_ID = #{galary_id}
+	</select>
+	
+	<!-- 다운로드 기록남기기 -->
+	<insert id = "InsDownloads" parameterType="DownloadsVO">
+		INSERT INTO
+		DOWNLOADS
+		VALUES( DOWN_SEQ.NEXTVAL, #{media_id}, SYSDATE, #{user_id} )
+	</insert>
+	
+	<!--  다운로드 횟수 추가 -->
+	<update id= "updateDownCnt" parameterType="Integer">
+		UPDATE MEDIA
+		SET DOWN_CNT = DOWN_CNT +1
+		WHERE MEDIA_ID = #{media_id}
+	</update>
+	
+	<!-- 갤러리 포스트 수정 -->
+	<update id="UpdateGalaryPost" parameterType="GalaryVO">
+		UPDATE GALARY
+		SET TITLE = #{title},
+		CONTENT = #{content},
+		CATEGORY = #{category}
+		WHERE GALARY_ID = #{galary_id}
+	</update>
+	
+	<!-- 사진삭제 -->
+	<update id="delImage" parameterType="GalaryVO">
+		UPDATE MEDIA
+		SET DEL_YN = 'y',
+		DEL_DATE = SYSDATE 
+		 WHERE MEDIA_ID IN
+		<foreach item="imgDelArr" index="index" collection="imgDelArr"
+		      open="(" separator="," close=")">
+		        #{imgDelArr}
+		 </foreach>
+	</update>
+	
+	<!-- 태그삭제 -->
+	<delete id="delTags" parameterType="GalaryVO">
+		delete tags
+		where tag_id in
+		<foreach item="delTagArr" index="index" collection="delTagArr"
+		      open="(" separator="," close=")">
+		        #{delTagArr}
+		 </foreach>	
+	</delete>
+	
+	<!-- 썸네일 찾기 -->
+	<select id="getThumnail" parameterType="Integer" resultType="MediaVO">
+		SELECT *
+		FROM MEDIA
+		WHERE FILE_NAME LIKE 'thumnail'||'%'
+		AND DEL_YN = 'n'
+		AND GALARY_ID = #{galary_id}
+	</select>
+	
+	<!-- 썸네일이었던 이미지파일 썸네일 해제 ㅎㅎ  -->
+	<update id="cancelThumnail" parameterType="Integer">
+		UPDATE MEDIA
+		SET FILE_NAME = REPLACE(FILE_NAME, 'thumnail', '')
+		, THUMNAIL_YN = 'n'
+		WHERE FILE_NAME LIKE '%thumnail%'
+		AND GALARY_ID = #{galary_id}
+	</update>
+	
+	<!-- 원래 있던 파일에서 썸네일 지정하는 경우 -->
+	<update id="changeThumnail" parameterType="GalaryVO">
+	  UPDATE MEDIA
+		SET FILE_NAME = 
+		  CASE 
+		    WHEN FILE_NAME LIKE '%Resize%' THEN 
+		      
+		        SUBSTR(FILE_NAME, 1, INSTR(FILE_NAME, 'Resize') + LENGTH('Resize') - 1)||
+		        'thumnail'||
+		        SUBSTR(FILE_NAME, INSTR(FILE_NAME, 'Resize') + LENGTH('Resize') + 1)
+		      
+		    ELSE CONCAT('thumnail', FILE_NAME)
+		  END,
+		  THUMNAIL_YN = 'y'
+		WHERE GALARY_ID = #{galary_id}
+		AND ORIGINAL_NAME = #{original_name}
+	</update>
+	
+	<select id="mediasrh" parameterType="map" resultType="MediaVO">
+		SELECT *
+		FROM MEDIA
+		WHERE ORIGINAL_NAME = (SELECT ORIGINAL_NAME FROM MEDIA WHERE MEDIA_ID = #{media_id})
+		AND DEL_YN = 'n'
+		AND GALARY_ID = #{galary_id}
+		AND MEDIA_ID != #{media_id}
+	</select>
+	
+	<!-- 랭킹 뽑기 조회수 -->
+	<select id="getRanksCnt" parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT * 
+		FROM (SELECT ROWNUM AS RN, B.*
+		FROM (SELECT DISTINCT G.GALARY_ID
+				, G.TITLE
+				, G.CATEGORY
+				,(
+	               SELECT COUNT(*)
+	               FROM GALARY_HISTORY
+	               WHERE GALARY_ID = G.GALARY_ID
+               		<if test='rankType == "day" '>
+						AND TO_CHAR( CNT_DATE, 'YYYY-MM-DD') = TO_CHAR(SYSDATE, 'YYYY-MM-DD')
+					</if>
+					<if test='rankType == "week" '>
+						AND CNT_DATE BETWEEN NEXT_DAY(TRUNC(SYSDATE) - 7, '월요일') AND NEXT_DAY(TRUNC(SYSDATE), '일요일')
+					</if>
+					<if test='rankType == "month" '>
+						AND to_char(CNT_DATE, 'YYYY/MM') = to_char(SYSDATE, 'YYYY/MM')
+					</if> 
+	           ) AS "CNT"
+		FROM GALARY G  JOIN GALARY_HISTORY H
+		ON G.GALARY_ID = H.GALARY_ID
+		WHERE G.DEL_YN = 'n'
+		 <if test="category != null">
+		      	AND CATEGORY = #{category}
+	    </if>
+		AND G.MENU_ID = #{menu_id}
+		ORDER BY CNT DESC
+		)b
+		)
+		where RN BETWEEN 1 and 10
+	</select>
+	
+	<!-- 랭킹뽑기 좋아요 -->
+	<select id="getRankLike" resultType="GalaryVO" parameterType="GalaryVO">
+			SELECT * 
+			FROM (SELECT ROWNUM AS RN, B.*
+			FROM (SELECT DISTINCT 
+					G.GALARY_ID
+					, G.TITLE
+					, G.CATEGORY
+		           ,(
+				    SELECT COUNT(*)
+				    FROM LIKES
+				    WHERE GALARY_ID = G.GALARY_ID
+				    AND CANCEL_YN = 'n'
+				    <if test='rankType == "day" '>
+						AND TO_CHAR(LIKE_DATE, 'YYYY-MM-DD') = TO_CHAR(SYSDATE, 'YYYY-MM-DD')
+					</if>
+					<if test='rankType == "week" '>
+						AND LIKE_DATE BETWEEN NEXT_DAY(TRUNC(SYSDATE) - 7, '월요일') AND NEXT_DAY(TRUNC(SYSDATE), '일요일')
+					</if>
+					<if test='rankType == "month" '>
+						AND TO_CHAR(LIKE_DATE, 'YYYY/MM') = TO_CHAR(SYSDATE, 'YYYY/MM')
+					</if>  
+				) AS "CNT" 
+			FROM GALARY G 
+			WHERE G.DEL_YN = 'n'
+			 <if test="category != null">
+		      	AND CATEGORY = #{category}
+		    </if>
+			 
+			AND G.MENU_ID = #{menu_id}
+			ORDER BY CNT DESC
+			)b
+			)
+			where RN BETWEEN 1 and 10
+	</select>
+	
+	<!-- 다운로드수로 랭킹 -->
+	<select id="getRanksDownCnt" resultType="GalaryVO" parameterType="GalaryVO">
+	SELECT *
+	FROM (
+	    SELECT ROWNUM AS RN, B.*
+	    FROM (
+	        SELECT
+	            G.GALARY_ID,
+	            G.CATEGORY,
+	            (
+	                SELECT COUNT(D.MEDIA_ID)
+	                FROM DOWNLOADS D
+	                JOIN MEDIA M ON D.MEDIA_ID = M.MEDIA_ID
+	                WHERE M.DEL_YN = 'n'
+                    AND M.GALARY_ID = G.GALARY_ID
+        			 <if test="category != null">
+			      		AND CATEGORY = #{category}
+				    </if>
+					 <if test='rankType == "day" '>
+						AND TO_CHAR(D.DOWNLOAD_DATE, 'YYYY-MM-DD') = TO_CHAR(SYSDATE, 'YYYY-MM-DD')
+					</if>
+					<if test='rankType == "week" '>
+						AND D.DOWNLOAD_DATE BETWEEN NEXT_DAY(TRUNC(SYSDATE) - 7, '월요일') AND NEXT_DAY(TRUNC(SYSDATE), '일요일')
+					</if>
+					<if test='rankType == "month" '>
+						AND TO_CHAR(D.DOWNLOAD_DATE, 'YYYY/MM') = TO_CHAR(SYSDATE, 'YYYY/MM')
+					</if> 
+	            ) AS CNT
+	            , M.MEDIA_ID
+	            , M.ORIGINAL_NAME AS "TITLE"
+	        FROM GALARY G
+	        JOIN MEDIA M ON G.GALARY_ID = M.GALARY_ID
+	        WHERE G.DEL_YN = 'n'
+	        	 AND M.FILE_NAME LIKE 'Resize%'
+	            AND G.MENU_ID = #{menu_id}
+             <if test="category != null">
+		      	AND CATEGORY = #{category}
+		    </if>
+	        ORDER BY CNT DESC
+	    ) B
+	)
+	WHERE RN BETWEEN 1 AND 10
+	</select>
+	
+	<!-- 태그랭킹 -->
+	<select id="getRanksTags" parameterType="GalaryVO" resultType="egovframework.fusion.galary.vo.TagRcdVO">
+		SELECT TAG_NAME, CNT
+		FROM (
+		  SELECT TAG_NAME, COUNT(TAG_NAME) AS CNT
+		  FROM TAG_RCD
+		  WHERE 1=1
+		  AND TAG_NAME IS NOT NULL
+		    <if test='rankType == "day" '>
+		      AND TO_CHAR(CLICK_DATE, 'YYYY-MM-DD') = TO_CHAR(SYSDATE, 'YYYY-MM-DD')
+		    </if>
+		    <if test='rankType == "week" '>
+		      AND CLICK_DATE BETWEEN NEXT_DAY(TRUNC(SYSDATE) - 7, '월요일') AND NEXT_DAY(TRUNC(SYSDATE), '일요일')
+		    </if>
+		    <if test='rankType == "month" '>
+		      AND TO_CHAR(CLICK_DATE, 'YYYY/MM') = TO_CHAR(SYSDATE, 'YYYY/MM')
+		    </if>  
+		  GROUP BY TAG_NAME
+		  ORDER BY COUNT(TAG_NAME) DESC
+		)
+		WHERE 10 >= ROWNUM;
+	</select>
+	
+	<!-- 모든 태그 가져오기 -->
+	<select id="allTags" resultType="TagsVO">
+		 SELECT T.TAG_NAME AS "X", COUNT(T.TAG_NAME) AS "VALUE"
+		  FROM TAG_RCD R RIGHT JOIN TAGS T
+			ON R.TAG_NAME = T.TAG_NAME
+			WHERE T.TAG_NAME IS NOT NULL
+		  GROUP BY T.TAG_NAME
+		  ORDER BY COUNT(T.TAG_NAME) DESC
+	</select>
+	
+	<!-- 태그 기록 넣기 -->
+	<insert id="inputTagsRcd" parameterType="egovframework.fusion.galary.vo.TagRcdVO">
+		INSERT INTO TAG_RCD
+		VALUES(TAGRCD_SEQ.NEXTVAL, #{tag_name}, SYSDATE)
+	</insert>
+	
+	<!-- 통계용 -->
+	<!-- 조회수 -->
+	 <select id="getCntstatsByDay" parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT EXTRACT(YEAR FROM D.DUMDATE) AS "YEAR",
+	       EXTRACT(MONTH FROM D.DUMDATE) AS "MONTH",
+	       EXTRACT(DAY FROM D.DUMDATE) AS "DAY",
+	       COUNT(DISTINCT H.GALHIS_ID) AS "CNT"
+		FROM 
+		   (SELECT DISTINCT TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'DD') AS DUMDATE
+		    FROM DUAL
+		    CONNECT BY TRUNC(TO_DATE(#{end_date}, 'YYYY-MM-DD') , 'DD') >= TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'DD')
+		  ) D 
+		LEFT JOIN (SELECT * 
+					FROM GALARY_HISTORY 
+					WHERE GALARY_ID IN (SELECT GALARY_ID 
+										FROM GALARY 
+										WHERE MENU_ID = #{menu_id} 
+										AND DEL_YN = 'n'
+										<if test='galary_id !=null'>
+											AND GALARY_ID = #{galary_id}
+										</if>
+										)
+				)H
+		    ON EXTRACT(YEAR FROM H.CNT_DATE) = EXTRACT(YEAR FROM D.DUMDATE)
+		    AND EXTRACT(MONTH FROM H.CNT_DATE) = EXTRACT(MONTH FROM D.DUMDATE)
+		    AND EXTRACT(DAY FROM H.CNT_DATE) = EXTRACT(DAY FROM D.DUMDATE)
+		LEFT JOIN GALARY G
+		    ON h.GALARY_ID = G.GALARY_ID 
+		    AND G.DEL_YN = 'n'
+		    AND G.MENU_ID = #{menu_id}
+		GROUP BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE), EXTRACT(DAY FROM D.DUMDATE)
+		ORDER BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE), EXTRACT(DAY FROM D.DUMDATE)
+	</select>
+	
+	<select id="getCntstatsByWeek" parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT D.DUMDATE  AS "WEEK", NVL(COUNT(DISTINCT GALHIS_ID),0) AS "CNT"
+		FROM 
+		   (SELECT DISTINCT TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'IW') AS DUMDATE
+		  FROM DUAL
+		  CONNECT BY TO_DATE(#{end_date}, 'YYYY-MM-DD') >= TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'IW') 
+		  )D LEFT JOIN (SELECT * FROM 
+		  				GALARY_HISTORY WHERE GALARY_ID 
+		  				IN (SELECT GALARY_ID 
+		  					FROM GALARY 
+		  					WHERE MENU_ID = #{menu_id}
+		  					AND DEL_YN = 'n'
+ 							<if test='galary_id !=null'>
+								AND GALARY_ID = #{galary_id}
+							</if>
+		  					)
+		  				) H
+			ON TRUNC(H.CNT_DATE, 'IW') = DUMDATE
+		GROUP BY D.DUMDATE
+		ORDER BY D.DUMDATE
+	</select> 
+	
+	<select id="getCntstatsByMonth" parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT EXTRACT(YEAR FROM D.DUMDATE) AS "YEAR",
+		      EXTRACT(MONTH FROM D.DUMDATE) AS "MONTH",
+	     	  COUNT(DISTINCT H.GALHIS_ID) AS "CNT"
+		FROM 
+		   (SELECT DISTINCT TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'MONTH') AS DUMDATE
+		    FROM DUAL
+		    CONNECT BY TRUNC(to_date(#{end_date}, 'YYYY-MM-DD'), 'MONTH') >= TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'MONTH')
+		  ) D
+		LEFT JOIN (SELECT * 
+					FROM GALARY_HISTORY 
+					WHERE GALARY_ID IN (SELECT GALARY_ID 
+										FROM GALARY 
+										WHERE MENU_ID = #{menu_id}
+										AND DEL_YN = 'n'
+ 										<if test='galary_id !=null'>
+											AND GALARY_ID = #{galary_id}
+										</if> 
+										)
+					) H
+		    ON EXTRACT(YEAR FROM H.CNT_DATE) = EXTRACT(YEAR FROM D.DUMDATE)
+		    AND EXTRACT(MONTH FROM H.CNT_DATE) = EXTRACT(MONTH FROM D.DUMDATE)
+		GROUP BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE)
+		ORDER BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE)
+	</select>
+	
+	<!-- 좋아요 -->
+	<select id="getLikeStatsByDay"  parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT EXTRACT(YEAR FROM D.DUMDATE) AS "YEAR",
+	       EXTRACT(MONTH FROM D.DUMDATE) AS "MONTH",
+	       EXTRACT(DAY FROM D.DUMDATE) AS "DAY",
+	       COUNT(DISTINCT L.LIKE_ID) AS "CNT"
+		FROM 
+		   (SELECT DISTINCT TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'DD') AS DUMDATE
+		    FROM DUAL
+		    CONNECT BY TRUNC(TO_DATE(#{end_date}, 'YYYY-MM-DD') , 'DD') >= TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'DD')
+		  ) D 
+		LEFT JOIN (SELECT * 
+					FROM LIKES 
+					WHERE GALARY_ID IN (SELECT GALARY_ID 
+										FROM GALARY 
+										WHERE MENU_ID = #{menu_id} AND DEL_YN = 'n'
+ 										<if test='galary_id !=null'>
+											AND GALARY_ID = #{galary_id}
+										</if>)
+				)L 
+		    ON EXTRACT(YEAR FROM L.LIKE_DATE) = EXTRACT(YEAR FROM D.DUMDATE)
+		    AND EXTRACT(MONTH FROM L.LIKE_DATE) = EXTRACT(MONTH FROM D.DUMDATE)
+		    AND EXTRACT(DAY FROM L.LIKE_DATE) = EXTRACT(DAY FROM D.DUMDATE)
+		    AND L.CANCEL_YN = 'n'
+		GROUP BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE), EXTRACT(DAY FROM D.DUMDATE)
+		ORDER BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE), EXTRACT(DAY FROM D.DUMDATE)
+	</select>
+	
+	<select id="getLikeStatsByWeek"  parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT D.DUMDATE  AS "WEEK",
+				 NVL(COUNT(DISTINCT LIKE_ID),0) AS "CNT"
+		FROM 
+		   (SELECT DISTINCT TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'IW') AS DUMDATE
+		  FROM DUAL
+		  CONNECT BY TO_DATE(#{end_date}, 'YYYY-MM-DD') >= TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'IW')
+		  )D LEFT JOIN (SELECT * 
+						FROM LIKES 
+						WHERE GALARY_ID IN (SELECT GALARY_ID 
+										FROM GALARY 
+										WHERE MENU_ID = #{menu_id} AND DEL_YN = 'n'
+  										<if test='galary_id !=null'>
+											AND GALARY_ID = #{galary_id}
+										</if> 
+										)
+				)L  
+			ON TRUNC(L.LIKE_DATE, 'IW') = DUMDATE
+			AND L.CANCEL_YN = 'n'
+		GROUP BY D.DUMDATE
+		ORDER BY D.DUMDATE
+	</select>
+	
+	<select id="getLikestatsByMonth" resultType="GalaryVO" parameterType="GalaryVO">
+		SELECT EXTRACT(YEAR FROM D.DUMDATE) AS "YEAR",
+		       EXTRACT(MONTH FROM D.DUMDATE) AS "MONTH",
+		       COUNT(DISTINCT L.LIKE_ID) AS "CNT"
+		FROM 
+		   (SELECT DISTINCT TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'MONTH') AS DUMDATE
+		    FROM DUAL
+		    CONNECT BY TRUNC(TO_DATE(#{end_date},'YYYY-MM-DD'), 'MONTH') >= TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'MONTH')
+		  ) D
+		LEFT JOIN (SELECT * FROM LIKES 
+					WHERE GALARY_ID 
+					IN (SELECT GALARY_ID 
+						FROM GALARY 
+						WHERE MENU_ID = #{menu_id}
+						AND DEL_YN = 'n'
+ 						<if test='galary_id !=null'>
+						AND GALARY_ID = #{galary_id}
+						</if> 
+						)
+			) L
+		    ON EXTRACT(YEAR FROM L.LIKE_DATE) = EXTRACT(YEAR FROM D.DUMDATE)
+		    AND EXTRACT(MONTH FROM L.LIKE_DATE) = EXTRACT(MONTH FROM D.DUMDATE)
+		    AND L.CANCEL_YN = 'n'
+		GROUP BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE)
+		ORDER BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE)
+	</select>
+	
+	<!-- 다운로드-->
+	<select id="getDownstatsByDay"  parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT EXTRACT(YEAR FROM D.DUMDATE) AS "YEAR",
+		      EXTRACT(MONTH FROM D.DUMDATE) AS "MONTH",
+		     EXTRACT(DAY FROM D.DUMDATE) AS "DAY",
+	     	  COUNT(DISTINCT W.DOWNLOAD_ID) AS "CNT"
+		FROM 
+		   (SELECT DISTINCT TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'DD') AS DUMDATE
+		    FROM DUAL
+		    CONNECT BY TRUNC(TO_DATE(#{end_date}, 'YYYY-MM-DD'), 'DD') >= TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'DD')
+		  ) D
+		LEFT JOIN (SELECT *
+				FROM DOWNLOADS
+				WHERE media_id IN (
+				    SELECT media_id
+				    FROM MEDIA
+				    WHERE GALARY_ID IN (
+				        SELECT GALARY_ID
+				        FROM GALARY
+				        WHERE MENU_ID = #{menu_id}
+				        AND DEL_YN = 'n'
+				    )
+			)) W
+			ON EXTRACT(YEAR FROM W.DOWNLOAD_DATE) = EXTRACT(YEAR FROM D.DUMDATE)
+		    AND EXTRACT(MONTH FROM W.DOWNLOAD_DATE) = EXTRACT(MONTH FROM D.DUMDATE)
+			AND EXTRACT(DAY FROM W.DOWNLOAD_DATE) = EXTRACT(DAY FROM D.DUMDATE)
+		GROUP BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE), EXTRACT(DAY FROM D.DUMDATE)
+		ORDER BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE), EXTRACT(DAY FROM D.DUMDATE)	
+	
+	</select>
+	
+	<select id="getDownstatsByWeek" parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT D.DUMDATE AS "WEEK", NVL(COUNT(DISTINCT DOWNLOAD_ID), 0) AS "CNT"
+		FROM 
+		  (SELECT DISTINCT TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'IW') AS DUMDATE
+		   FROM DUAL
+		   CONNECT BY TO_DATE(#{end_date}, 'YYYY-MM-DD') >= TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'IW')
+		  ) D
+		LEFT JOIN (SELECT *
+		           FROM DOWNLOADS
+		           WHERE MEDIA_ID IN (
+		               SELECT MEDIA_ID
+		               FROM MEDIA
+		               WHERE GALARY_ID IN (
+		                   SELECT GALARY_ID
+		                   FROM GALARY
+		                   WHERE MENU_ID = #{menu_id}
+		                   AND DEL_YN = 'n'
+		               )
+		           )
+		          ) W
+		ON TRUNC(W.DOWNLOAD_DATE, 'IW') = DUMDATE
+		GROUP BY D.DUMDATE
+		ORDER BY D.DUMDATE	
+	</select>
+	
+	<select id="getDownstatsByMonth" parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT EXTRACT(YEAR FROM D.DUMDATE) AS "YEAR",
+		      EXTRACT(MONTH FROM D.DUMDATE) AS "MONTH",
+	     	  COUNT(DISTINCT W.DOWNLOAD_ID) AS "CNT"
+		FROM 
+		   (SELECT DISTINCT TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'MONTH') AS DUMDATE
+		    FROM DUAL
+		    CONNECT BY TRUNC(TO_DATE(#{end_date}, 'YYYY-MM-DD'), 'MONTH') >= TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'MONTH')
+		  ) D
+		LEFT JOIN (SELECT *
+				FROM DOWNLOADS
+				WHERE media_id IN (
+				    SELECT media_id
+				    FROM MEDIA
+				    WHERE GALARY_ID IN (
+				        SELECT GALARY_ID
+				        FROM GALARY
+				        WHERE MENU_ID = #{menu_id}
+				        AND DEL_YN = 'n'
+				    )
+				)) W
+		    ON EXTRACT(YEAR FROM W.DOWNLOAD_DATE) = EXTRACT(YEAR FROM D.DUMDATE)
+		    AND EXTRACT(MONTH FROM W.DOWNLOAD_DATE) = EXTRACT(MONTH FROM D.DUMDATE)
+		GROUP BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE)
+		ORDER BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE)
+	</select>
+	
+	<!-- 태그통계 -->
+	<select id="getTagStaticsByDay" parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT EXTRACT(YEAR FROM D.DUMDATE) AS "YEAR",
+		      EXTRACT(MONTH FROM D.DUMDATE) AS "MONTH",
+		     EXTRACT(DAY FROM D.DUMDATE) AS "DAY",
+	     	  COUNT(DISTINCT R.TAGRCD_ID) AS "CNT"
+		FROM 
+		   (SELECT DISTINCT TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'DD') AS DUMDATE
+		    FROM DUAL
+		    CONNECT BY TRUNC(TO_DATE(#{end_date}, 'YYYY-MM-DD'), 'DD') >= TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'DD')
+		  ) D
+		LEFT JOIN TAG_RCD  R
+		    ON EXTRACT(YEAR FROM R.CLICK_DATE) = EXTRACT(YEAR FROM D.DUMDATE)
+		    AND EXTRACT(MONTH FROM R.CLICK_DATE) = EXTRACT(MONTH FROM D.DUMDATE)
+		     AND EXTRACT(DAY FROM R.CLICK_DATE) = EXTRACT(DAY FROM D.DUMDATE)
+		LEFT JOIN (SELECT * FROM TAGS WHERE GALARY_ID IN (SELECT GALARY_ID FROM GALARY WHERE MENU_ID = #{menu_id}))  T
+			ON R.TAG_NAME = T.TAG_NAME
+		GROUP BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE), EXTRACT(DAY FROM D.DUMDATE)
+		ORDER BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE), EXTRACT(DAY FROM D.DUMDATE)
+	</select>
+	
+	<select id="getTagStaticsByWeek" parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT D.DUMDATE AS WEEK, NVL(COUNT(DISTINCT tagrcd_id), 0) AS CNT
+		FROM 
+		   (SELECT DISTINCT TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'IW') AS DUMDATE
+		  FROM DUAL
+		  CONNECT BY TO_DATE(#{end_date}, 'YYYY-MM-DD') >= TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'IW')
+		  )D 
+		 LEFT JOIN TAG_RCD R
+	    ON TRUNC(R.CLICK_DATE, 'IW') = D.DUMDATE
+		LEFT JOIN (SELECT * FROM TAGS WHERE GALARY_ID IN (SELECT GALARY_ID FROM GALARY WHERE MENU_ID = #{menu_id} AND DEL_YN = 'n')) T
+		    ON R.TAG_NAME = T.TAG_NAME
+		GROUP BY D.DUMDATE
+		ORDER BY D.DUMDATE
+	</select>
+	
+	<select id="getTagStaticsByMonth" parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT EXTRACT(YEAR FROM D.DUMDATE) AS "YEAR",
+		      EXTRACT(MONTH FROM D.DUMDATE) AS "MONTH",
+	     	  COUNT(DISTINCT R.TAGRCD_ID) AS "CNT"
+		FROM 
+		   (SELECT DISTINCT TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'MONTH') AS DUMDATE
+		    FROM DUAL
+		    CONNECT BY TRUNC(TO_DATE(#{end_date}, 'YYYY-MM-DD'), 'MONTH') >= TRUNC(TO_DATE(#{start_date}, 'YYYY-MM-DD') + LEVEL - 1, 'MONTH')
+		  ) D
+		LEFT JOIN TAG_RCD  R
+		    ON EXTRACT(YEAR FROM R.CLICK_DATE) = EXTRACT(YEAR FROM D.DUMDATE)
+		    AND EXTRACT(MONTH FROM R.CLICK_DATE) = EXTRACT(MONTH FROM D.DUMDATE)
+		LEFT JOIN (SELECT * FROM TAGS WHERE GALARY_ID IN (SELECT GALARY_ID FROM GALARY WHERE MENU_ID = #{menu_id}))  T
+			ON R.TAG_NAME = T.TAG_NAME
+		GROUP BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE), EXTRACT(DAY FROM D.DUMDATE)
+		ORDER BY EXTRACT(YEAR FROM D.DUMDATE), EXTRACT(MONTH FROM D.DUMDATE), EXTRACT(DAY FROM D.DUMDATE)
+	</select>
+</mapper>

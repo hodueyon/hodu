@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.fusion.user.service.UserMapper">
+	
+	<insert id="insUser" parameterType="userVo">			
+		INSERT INTO USERS
+		VALUES (
+				CONCAT('USER', USERS_SEQ.NEXTVAL)
+			   ,#{user_name}
+			   ,#{password}
+			   ,#{real_name}
+			   ,3
+			   , #{location}
+			   )
+	</insert>
+
+	<select id="getCheckId" resultType="Integer" parameterType="userVo">
+	    SELECT COUNT(USER_NAME)
+          FROM USERS
+         WHERE USER_NAME = #{user_name}
+	</select>
+	
+	<select id="getUser" resultType="userVo" parameterType="userVo">
+	    SELECT USER_ID
+           	 , USER_NAME
+           	 , PASSWORD
+           	 , REAL_NAME
+           	 , AUTH
+          FROM USERS
+         WHERE USER_NAME = #{user_name}
+	</select>
+
+	<select id="getUserList" resultType="UserVo">
+		SELECT USER_ID, USER_NAME, REAL_NAME, AUTH_NAME, LOCATION, S.SUB_NAME AS LOCATIONNAME
+		FROM USERS U JOIN AUTHENTICATION A
+		ON U.AUTH = A.AUTH_ID
+		JOIN SUB_COMMON S
+		ON U.LOCATION = S.SUB_ID
+	</select>
+	
+	
+</mapper>

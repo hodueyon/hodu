@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.fusion.studyRoom.service.StudyMapper">
+	
+	<!-- 좌석 정보 가져오기 -->
+	<select id="getSeats" parameterType="egovframework.fusion.studyRoom.vo.ReserveVO" resultType="egovframework.fusion.studyRoom.vo.SeatVO">
+		SELECT DISTINCT
+	    S.SEAT_ID,
+	    S.SEAT_NUM,
+	    NVL(
+	        (
+	            SELECT SUM(EXTRACT(HOUR FROM (V.USE_END - V.USE_START)))
+	            FROM SEAT_RESERV V
+	            WHERE V.SEAT_ID = S.SEAT_ID
+	            AND TRUNC(V.USE_START) = TO_DATE(#{use_start}, 'YYYY-MM-DD')
+	            AND V.CANCEL_YN = 'n'
+	        ), 0
+	    ) AS "TOTAL"
+	FROM
+	    SEAT_TBL S
+	    LEFT JOIN SEAT_RESERV R ON S.SEAT_ID = R.SEAT_ID
+	    AND TRUNC(R.USE_START) = TO_DATE(#{use_start}, 'YYYY-MM-DD')
+	    INNER JOIN STUDYROOM T ON S.ROOM_ID = T.ROOM_ID
+	    WHERE S.SEAT_NUM BETWEEN T.SEAT_START AND T.SEAT_END
+	    AND T.ROOM_ID = #{room_id}
+	    ORDER BY SEAT_NUM
+	</select>
+	
+	<!-- 독서실정보가져오기/ 예약시간등등~ -->
+	<select id="getInfoReserveBySeat" parameterType="egovframework.fusion.studyRoom.vo.ReserveVO" resultType="egovframework.fusion.studyRoom.vo.StudyRoomVO">
+		SELECT T.TIME_START,
+			 	T.TIME_END,
+			  	S.SEAT_ID,
+			   	T.ROOM_ID,
+			    R.RESERVE_ID,
+			     EXTRACT(HOUR FROM R.USE_START) AS "USESTART",
+			     EXTRACT(HOUR FROM R.USE_END) AS "USEEND"
+		FROM STUDYROOM T
+		LEFT JOIN SEAT_TBL S ON T.ROOM_ID = S.ROOM_ID
+		LEFT JOIN SEAT_RESERV R ON S.SEAT_ID = R.SEAT_ID
+		 AND TRUNC(R.USE_START)  = TO_DATE(#{use_start}, 'YYYY-MM-DD')
+		 AND R.CANCEL_YN = 'n'
+		WHERE T.ROOM_ID = #{room_id}
+		AND S.SEAT_ID = #{seat_id}
+		
+	</select>
+	
+	<!-- 목적리스트 -->
+	<select id="purposeList" resultType="egovframework.fusion.studyRoom.vo.UsePurposeVO">
+		SELECT * 
+		FROM USE_PURPOSE
+		WHERE ONLY_ADMIN != 2
+	</select>
+	
+	<!-- 독서실 방 정보가져오기 -->
+	<select id="getInfoStudyRoom" parameterType="Integer" resultType="egovframework.fusion.studyRoom.vo.StudyRoomVO">
+		SELECT ROOM_ID, SEAT_START, SEAT_END, TIME_START, TIME_END, TIME_END - TIME_START AS "GAP"
+				,   TIME_END - (
+				    CASE 
+				      WHEN TO_CHAR(SYSTIMESTAMP, 'MI') != '00' THEN CAST(TO_CHAR(SYSTIMESTAMP, 'HH24') AS NUMBER) + 1
+				      ELSE CAST(TO_CHAR(SYSTIMESTAMP, 'HH24') AS NUMBER)
+				    END
+				  ) AS "THETIME"
+		FROM STUDYROOM
+		WHERE ROOM_ID = #{room_id}
+	</select>
+	
+	<!-- 예약하기 -->
+	<insert id="insertReservation" parameterType="egovframework.fusion.studyRoom.vo.ReserveVO">
+		INSERT INTO
+		SEAT_RESERV
+		VALUES(RESERV_SEQ.NEXTVAL, #{user_id}, #{seat_id}, TO_TIMESTAMP(#{use_start},'YYYY-MM-DD HH24:MI:SS'), TO_TIMESTAMP(#{use_end},'YYYY-MM-DD HH24:MI:SS'), #{purpose_id}, 'n') 
+	</insert>
+	
+	<!-- 예약취소 -->
+	<update id="canleReservation" parameterType="Integer">
+		UPDATE SEAT_RESERV
+		SET CANCEL_YN = 'y'
+		WHERE RESERVE_ID = #{reserve_id}
+	</update>
+	
+	<!-- 예약목록가져오기 -->
+	<select id="myReservationList" resultType="egovframework.fusion.studyRoom.vo.ReserveVO">
+		SELECT RESERVE_ID, USER_ID, R.SEAT_ID, SEAT_NUM, TO_CHAR(USE_START, 'YYYY-MM-DD HH24:MI') AS "USE_START", TO_CHAR(USE_END, 'HH24:MI') AS "USE_END", ROOM_ID  
+		FROM SEAT_RESERV R
+		JOIN SEAT_TBL S
+		ON R.SEAT_ID = S.SEAT_ID
+		WHERE USER_ID = #{USER_ID}
+		AND TO_CHAR(USE_END,  'YYYY-MM-DD HH24:MI') >  TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD HH24:MI')
+		AND CANCEL_YN = 'n'
+		ORDER BY USE_START
+	</select>
+	
+	<!-- 누가 이미 예약했는지 한번 체크하기  -->
+	<select id="ckReserve" resultType="egovframework.fusion.studyRoom.vo.ReserveVO" parameterType="egovframework.fusion.studyRoom.vo.ReserveVO">
+		SELECT *
+		FROM SEAT_RESERV
+		WHERE SEAT_ID = #{seat_id}
+		AND CANCEL_YN = 'n'
+		AND ( 
+			USE_END > TO_TIMESTAMP(#{use_start},'YYYY-MM-DD HH24:MI:SS')
+			AND TO_TIMESTAMP(#{use_end},'YYYY-MM-DD HH24:MI:SS') > USE_START
+			)
+	</select>
+	
+	<select id="ckTimeMyOtherReserv" resultType="egovframework.fusion.studyRoom.vo.ReserveVO" parameterType="egovframework.fusion.studyRoom.vo.ReserveVO">
+		SELECT *
+		FROM SEAT_RESERV
+		WHERE USER_ID = #{user_id}
+		AND CANCEL_YN = 'n'
+		AND ( 
+			USE_END > TO_TIMESTAMP(#{use_start},'YYYY-MM-DD HH24:MI:SS')
+			AND TO_TIMESTAMP(#{use_end},'YYYY-MM-DD HH24:MI:SS') > USE_START
+		)
+	</select>
+	
+	
+	
+</mapper>

@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.fusion.galary.service.GalaryMapper">
+	
+	<!-- 조회 -->
+	<select id="getGalaryList" parameterType="GalaryVO" resultType="GalaryVO">
+		SELECT *
+			FROM (SELECT ROWNUM as RN, B.*
+			FROM (
+			    SELECT G.GALARY_ID,
+			           G.TITLE,
+			           G.WRITER,
+			           G.CATEGORY,
+			           G.CONTENT,
+			           G.DEL_YN,
+			           G.REGISTER_DT,
+			           (
+			               SELECT COUNT(*)
+			               FROM GALARY_HISTORY
+			               WHERE GALARY_ID = G.GALARY_ID
+			           ) AS "CNT",
+			           (
+			               SELECT COUNT(*)
+			               FROM LIKES
+			               WHERE GALARY_ID = G.GALARY_ID
+			               AND CANCEL_YN = 'n' 
+			           ) AS "LIKESCNT",
+				       NVL((
+				           SELECT LISTAGG(TAG_NAME, ',') WITHIN GROUP (ORDER BY TAG_NAME)
+				           FROM TAGS
+				           WHERE GALARY_ID = G.GALARY_ID
+				           GROUP BY GALARY_ID
+				       ), 'null') AS "TAG_NAME",
+			           M.FILE_NAME,
+			           M.ORIGINAL_NAME,
+			           M.FILE_ROUTE
+			    FROM GALARY G
+			    LEFT JOIN MEDIA M ON G.GALARY_ID = M.GALARY_ID
+			    WHERE M.FILE_NAME LIKE '%Resizethumnail%'
+			    AND M.DEL_YN = 'n'
+			    AND G.DEL_YN = 'n'
+			    			 <if test="category != null">
+						      AND CATEGORY = #{category}
+						    </if>
+						     <if test="search_type!=null and search_word != null">
+						        <if test='search_type == "writer" '>
+						          AND WRITER IN (SELECT U.USER_ID
+													FROM USERS U
+													WHERE U.USER_NAME LIKE '%'|| #{search_word}|| '%')
+						          AND G.DEL_YN = 'n'
+						        </if>
+						        <if test='search_type == "title" '>
+						          AND  TITLE LIKE '%' || #{search_word} || '%'
+						          AND G.DEL_YN = 'n'
+						        </if>
+						        <if test='search_type == "content"'>
+						          AND CONTENT LIKE '%' || #{search_word} || '%'
+						          AND G.DEL_YN = 'n'
+						        </if>
+								 <if test='search_type == "tag_name"'>
+						          AND G.GALARY_ID IN (SELECT T.GALARY_ID
+						          					FROM TAGS T
+						          					WHERE TAG_NAME = #{search_word})
+						          AND G.DEL_YN = 'n'
+								</if>
+								 <if test='search_type == "image_name"'>
+						          AND G.GALARY_ID IN (SELECT M.GALARY_ID
+						          					FROM MEDIA M
+						          					WHERE M.ORIGINAL_NAME LIKE '%'|| #{search_word}|| '%')
+						          AND G.DEL_YN = 'n'
+								</if>
+								<if test='search_type == "whole"'>
+									AND (WRITER LIKE '%'||#{search_word}||'%' 
+											OR TITLE LIKE '%'||#{search_word}||'%' 
+											OR CONTENT LIKE '%'||#{search_word}||'%'
+											OR G.GALARY_ID IN (SELECT M.GALARY_ID
+									          					FROM MEDIA M
+									          					WHERE M.ORIGINAL_NAME LIKE '%'|| #{search_word}|| '%')
+			          					 )
+									
+									AND G.DEL_YN = 'n'
+								</if>
+						 	</if>
+					ORDER BY  G.GALARY_ID desc
+					)B
+					)
+					WHERE RN BETWEEN #{start} AND #{end}
+	</select>
+	
+	<!-- 게시물 갯수 -->
+	<select id="cntGalary" parameterType="GalaryVO" resultType="Integer">
+		SELECT COUNT( DISTINCT G.GALARY_ID)
+		FROM GALARY G LEFT JOIN MEDIA M
+		ON G.GALARY_ID = M.GALARY_ID 
+		WHERE M.FILE_NAME LIKE '%Resizethumnail%' 
+		AND M.DEL_YN = 'n'
+		AND G.DEL_YN = 'n'
+					<if test="category != null">
+					      AND CATEGORY = #{category}
+					 </if>
+					<if test="search_type!=null and search_word != null and search_type != '' and search_word != ''">
+					 	<if test='search_type == "writer" '>
+							AND WRITER IN (SELECT U.USER_ID
+											FROM USERS U
+											WHERE U.USER_NAME LIKE '%'|| #{search_word}|| '%')
+						</if>
+						<if test='search_type == "title" '>			 	
+							AND TITLE LIKE '%'||#{search_word}||'%'
+						</if>
+						<if test='search_type == "content"'>
+							AND CONTENT LIKE '%'||#{search_word}||'%'
+						</if>
+						<if test='search_type == "tag_name"'>
+					          AND G.GALARY_ID IN (SELECT T.GALARY_ID
+					          					FROM TAGS T
+					          					WHERE TAG_NAME LIKE '%'|| #{search_word}||'%')
+						</if>
+						<if test='search_type == "image_name"'>
+					          AND G.GALARY_ID IN (SELECT M.GALARY_ID
+					          					FROM MEDIA M
+					          					WHERE M.ORIGINAL_NAME LIKE '%'|| #{search_word}|| '%')
+						</if>
+						<if test='search_type == "whole"'>
+									AND(WRITER LIKE '%'||#{search_word}||'%' 
+											OR TITLE LIKE '%'||#{search_word}||'%' 
+											OR CONTENT LIKE '%'||#{search_word}||'%'
+											OR G.GALARY_ID IN (SELECT M.GALARY_ID
+									          					FROM MEDIA M
+									          					WHERE M.ORIGINAL_NAME LIKE '%'|| #{search_word}|| '%'))
+									AND G.DEL_YN = 'n'
+						</if>
+				 	</if>	
+	</select>
+	
+	<!-- 게시물등록 -->
+	<insert id="insGalaryPost" parameterType="GalaryVO">
+		<selectKey keyProperty="galary_id" resultType="Integer"
+				order="BEFORE">
+				SELECT GAL_SEQ.NEXTVAL FROM DUAL
+			</selectKey>
+		INSERT INTO GALARY
+		VALUES(#{galary_id}, #{category}, #{title}, #{content}, #{writer}, 'n', SYSDATE, SYSDATE)
+	</insert>
+	
+	<!-- 이미지 등록 -->
+	<insert id="insImage" parameterType="MediaVO">
+			<selectKey keyProperty="media_id" resultType="Integer"
+				order="BEFORE">
+				SELECT MEDIA_SEQ.NEXTVAL FROM DUAL
+			</selectKey>
+		INSERT INTO MEDIA
+		VALUES(#{media_id},#{original_name},#{file_name},#{file_route},#{del_yn},#{thumnail_yn},#{galary_id},#{file_size}, 0, NULL)
+	</insert>
+	
+	<!-- 태그 넣기 -->
+	<insert id="insTags" parameterType="GalaryVO">
+	  <if test="tagArr != null">
+	      INSERT INTO TAGS(TAG_ID, TAG_NAME, GALARY_ID)
+	       VALUES 
+	       <foreach collection="tagArr" item="t" index="idx" separator=",">
+	      	( TAG_SEQ.NEXTVAL, #{t}, #{galary_id})
+	    	</foreach>
+	  </if>
+	</insert>
+	
+	<!-- 한건 조회 -->
+	<select id="getGalary" parameterType="Integer" resultType="GalaryVO">
+		SELECT G.CONTENT,
+		 	G.WRITER,
+	  		G.GALARY_ID,
+		  	G.REGISTER_DT,
+		    U.USER_NAME,
+		    G.TITLE,
+		    G.CATEGORY,
+		     (
+               SELECT COUNT(*)
+               FROM GALARY_HISTORY
+               WHERE GALARY_ID = G.GALARY_ID
+               AND GALARY_ID = #{galary_id}
+           ) AS "CNT",
+           (
+               SELECT COUNT(*)
+               FROM LIKES
+               WHERE GALARY_ID = G.GALARY_ID
+               AND CANCEL_YN = 'n' 
+               AND GALARY_ID = #{galary_id}
+           ) AS "LIKESCNT"
+ 		FROM
+		GALARY G  JOIN USERS U
+		ON G.WRITER = U.USER_ID
+		WHERE G.GALARY_ID = #{galary_id}
+	</select>
+	
+	<!-- 모든 사진파일 가져오기 -> 리사이징한거만  -->
+	<select id="getAllResize" parameterType="MediaVO" resultType="MediaVO">
+		SELECT * 
+		FROM MEDIA
+		WHERE FILE_NAME LIKE '%' || 'Resize' || '%'
+		AND GALARY_ID = #{galary_id}
+		 AND DEL_YN = 'n'
+	</select> 
+	
+	<!-- 조회수 여부체크 -->
+	<select id="CkGalHistory" parameterType="GalHistoryVO" resultType="Integer">
+		SELECT COUNT(*)
+		FROM GALARY_HISTORY
+		WHERE GALARY_ID = #{galary_id}
+		AND USER_ID = #{user_id}
+	</select>
+	
+	<!-- 조회수 등록 -->
+	<insert id="InsGalHistory" parameterType="GalHistoryVO">
+		INSERT 
+		INTO GALARY_HISTORY
+		VALUES(GALHIS_SEQ.NEXTVAL
+				,#{user_id}
+				, #{galary_id}
+				,SYSDATE)
+	</insert>
+	
+	<!-- 좋아요 여부 확인 -->
+	<select id="ckLikes" parameterType="LikeVO" resultType="Integer">
+		SELECT COUNT(*)
+		FROM LIKES
+		WHERE GALARY_ID = #{galary_id}
+		AND USER_ID = #{user_id}
+		AND CANCEL_YN = 'n'	
+	</select>
+	
+	<!-- 좋아요 하기 -->
+	<insert id="InsLikes" parameterType="LikeVO">
+		<selectKey keyProperty="like_id" resultType="Integer" order="BEFORE">
+		SELECT LIKES_SEQ.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO LIKES
+		VALUES( #{like_id}, #{galary_id}, #{user_id}, SYSDATE, #{cancel_yn})
+	</insert>
+	
+	<!-- 좋아요 취소 -->
+	<update id="delLikes" parameterType="LikeVO">
+		UPDATE LIKES
+		SET CANCEL_YN = 'y'
+		WHERE GALARY_ID = #{galary_id}
+		AND USER_ID = #{user_id}
+	</update>
+	
+	<!-- 글삭제 -->
+	<update id="delGalaryPost" parameterType="GalaryVO">
+		UPDATE GALARY
+		SET DEL_YN = 'y'
+		WHERE GALARY_ID = #{galary_id} 
+	</update>
+	
+	<!-- 태그조회 -->
+	<select id="getTags" parameterType="Integer" resultType="TagsVO">
+		SELECT * 
+		FROM TAGS
+		WHERE GALARY_ID = #{galary_id}
+	</select>
+	
+	<!-- 다운로드 기록남기기 -->
+	<insert id = "InsDownloads" parameterType="DownloadsVO">
+		INSERT INTO
+		DOWNLOADS
+		VALUES( DOWN_SEQ.NEXTVAL, #{media_id}, SYSDATE, #{user_id} )
+	</insert>
+	
+	<!--  다운로드 횟수 추가 -->
+	<update id= "updateDownCnt" parameterType="Integer">
+		UPDATE MEDIA
+		SET DOWN_CNT = DOWN_CNT +1
+		WHERE MEDIA_ID = #{media_id}
+	</update>
+	
+	<!-- 갤러리 포스트 수정 -->
+	<update id="UpdateGalaryPost" parameterType="GalaryVO">
+		UPDATE GALARY
+		SET TITLE = #{title},
+		CONTENT = #{content},
+		CATEGORY = #{category}
+		WHERE GALARY_ID = #{galary_id}
+	</update>
+	
+	<!-- 사진삭제 -->
+	<update id="delImage" parameterType="GalaryVO">
+		UPDATE MEDIA
+		SET DEL_YN = 'y',
+		DEL_DATE = SYSDATE 
+		 WHERE MEDIA_ID IN
+		<foreach item="imgDelArr" index="index" collection="imgDelArr"
+		      open="(" separator="," close=")">
+		        #{imgDelArr}
+		 </foreach>
+	</update>
+	
+	<!-- 태그삭제 -->
+	<delete id="delTags" parameterType="GalaryVO">
+		delete tags
+		where tag_id in
+		<foreach item="delTagArr" index="index" collection="delTagArr"
+		      open="(" separator="," close=")">
+		        #{delTagArr}
+		 </foreach>	
+	</delete>
+	
+	<!-- 썸네일 찾기 -->
+	<select id="getThumnail" parameterType="Integer" resultType="MediaVO">
+		SELECT *
+		FROM MEDIA
+		WHERE FILE_NAME LIKE 'thumnail'||'%'
+		AND DEL_YN = 'n'
+		AND GALARY_ID = #{galary_id}
+	</select>
+	
+	<!-- 썸네일이었던 이미지파일 썸네일 해제 ㅎㅎ  -->
+	<update id="cancelThumnail" parameterType="Integer">
+		UPDATE MEDIA
+		SET FILE_NAME = REPLACE(FILE_NAME, 'thumnail', '')
+		, THUMNAIL_YN = 'n'
+		WHERE FILE_NAME LIKE '%thumnail%'
+		AND GALARY_ID = #{galary_id}
+	</update>
+	
+	<!-- 원래 있던 파일에서 썸네일 지정하는 경우 -->
+	<update id="changeThumnail" parameterType="GalaryVO">
+	  UPDATE MEDIA
+		SET FILE_NAME = 
+		  CASE 
+		    WHEN FILE_NAME LIKE '%Resize%' THEN 
+		      
+		        SUBSTR(FILE_NAME, 1, INSTR(FILE_NAME, 'Resize') + LENGTH('Resize') - 1)||
+		        'thumnail'||
+		        SUBSTR(FILE_NAME, INSTR(FILE_NAME, 'Resize') + LENGTH('Resize') + 1)
+		      
+		    ELSE CONCAT('thumnail', FILE_NAME)
+		  END,
+		  THUMNAIL_YN = 'y'
+		WHERE GALARY_ID = #{galary_id}
+		AND ORIGINAL_NAME = #{original_name}
+	</update>
+	
+	<select id="mediasrh" parameterType="map" resultType="MediaVO">
+		SELECT *
+		FROM MEDIA
+		WHERE ORIGINAL_NAME = (SELECT ORIGINAL_NAME FROM MEDIA WHERE MEDIA_ID = #{media_id})
+		AND DEL_YN = 'n'
+		AND GALARY_ID = #{galary_id}
+		AND MEDIA_ID != #{media_id}
+	</select>
+	
+	
+	
+	
+	
+</mapper>
